@@ -39,6 +39,8 @@ test_data = np.loadtxt("NoisyXORTestData.txt").astype(dtype=np.int32)
 X_training = training_data[:,0:12] # Input features
 y_training = training_data[:,12] # Target value
 
+print('training:', X_training.shape, y_training.shape)
+
 X_test = test_data[:,0:12] # Input features
 y_test = test_data[:,12] # Target value
 

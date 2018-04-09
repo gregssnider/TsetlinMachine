@@ -21,7 +21,7 @@
 # This code implements a multiclass version of the Tsetlin Machine from paper arXiv:1804.01508
 # https://arxiv.org/abs/1804.01508
 
-#cython: boundscheck=False, cdivision=True, initializedcheck=False, nonecheck=False
+#cython: language_level=3, boundscheck=False, cdivision=True, initializedcheck=False, nonecheck=False
 
 import numpy as np
 cimport numpy as np
@@ -171,7 +171,8 @@ cdef class MultiClassTsetlinMachine:
 		else:
 			return 1
 
-	# Get the state of a specific automaton, indexed by clause, feature, and automaton type (include/include negated).
+	# Get the state of a specific automaton, indexed by clause, feature, and
+	# automaton type (include/include negated).
 	def get_state(self, int clause, int feature, int automaton_type):
 		return self.ta_state[clause,feature,automaton_type]
 
@@ -259,7 +260,8 @@ cdef class MultiClassTsetlinMachine:
 
 		# Calculate feedback to clauses
 		for j in xrange(self.clause_count[target_class]):
-			if 1.0*rand()/RAND_MAX > (1.0/(self.threshold*2))*(self.threshold - self.class_sum[target_class]):
+			if 1.0*rand()/RAND_MAX > (1.0/(self.threshold*2))*(self.threshold -
+			                          self.class_sum[target_class]):
 				continue
 
 			if self.clause_sign[target_class,j,1] > 0:
@@ -271,7 +273,8 @@ cdef class MultiClassTsetlinMachine:
 				self.feedback_to_clauses[self.clause_sign[target_class,j,0]] -= 1
 
 		for j in xrange(self.clause_count[negative_target_class]):
-			if 1.0*rand()/RAND_MAX > (1.0/(self.threshold*2))*(self.threshold + self.class_sum[negative_target_class]):
+			if 1.0*rand()/RAND_MAX > (1.0/(self.threshold*2))*(self.threshold +
+			                          self.class_sum[negative_target_class]):
 				continue
 
 			if self.clause_sign[negative_target_class,j,1] > 0:
@@ -365,5 +368,6 @@ cdef class MultiClassTsetlinMachine:
 				for j in xrange(self.number_of_features):
 					Xi[j] = X[example_id,j]
 				self.update(Xi, target_class)
+			print('.', end='', flush=True)
 		return
 			
