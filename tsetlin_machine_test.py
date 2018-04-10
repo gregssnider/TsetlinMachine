@@ -15,8 +15,8 @@ def test_constructor():
 
 def calculate_clause_output(machine: TsetlinMachine, input: ByteTensor):
     """Independent and slow implementation of the evaluate_clauses() method."""
-    action = machine.action(machine.automata).numpy()
-    inverting_action = machine.action(machine.inverting_automata).numpy()
+    action = machine.action.numpy()
+    inverting_action = machine.inverting_action.numpy()
     input = input.numpy()
 
     # Manually calculate the output of the clauses. This is partly copied from
@@ -78,6 +78,7 @@ def test_evaluate_clauses():
         [0, 0, 0, 0, 0]
     ])
     assert machine.inverting_automata.shape == automata_shape
+    machine.update_action()
     inputs = [
         ByteTensor([0, 1, 0, 1, 1]),
         ByteTensor([1, 1, 1, 0, 0]),
