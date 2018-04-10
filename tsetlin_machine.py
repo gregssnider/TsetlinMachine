@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from torch import IntTensor, ByteTensor
 
 
 class TsetlinMachine:
@@ -31,13 +32,16 @@ class TsetlinMachine:
     half to separate automata controlling non-inverting inputs from those
     controlling inverting inputs. The division looks like this:
 
-        automata matrix:
+        automata:
             +-------------------------------------------+
             |  positive polarity, non-inverting inputs  |
             +-------------------------------------------+
-            |  positive polarity, inverting inputs      |
-            +-------------------------------------------+
             |  negative polarity, non-inverting inputs  |
+            +-------------------------------------------+
+
+        inverting_automata:
+            +-------------------------------------------+
+            |  positive polarity, inverting inputs      |
             +-------------------------------------------+
             |  negative polarity, inverting inputs      |
             +-------------------------------------------+
@@ -50,6 +54,7 @@ class TsetlinMachine:
         s: system parameter (?)
         threshold: system parameter (?)
         automata: 2D tensor of Tsetlin automata controlling clauses.
+        inverting_automata: 2D tensor of Tsetlin automata controlling clauses.
 
     """
     def __init__(self, class_count: int, clause_count: int, feature_count: int,
@@ -70,20 +75,84 @@ class TsetlinMachine:
                                           (2 * clause_count, feature_count))
         self.automata = torch.from_numpy(initial_state)
 
+    def action(self, automata_tensor: IntTensor) -> ByteTensor:
+        """Compute the action of the given automata tensor.
 
-def check_machine():
-    class_count = 10
-    clause_count = 300
-    feature_count = 28 * 28
-    state_count = 100
-    s = 3.9
-    threshold = 15
-    machine = TsetlinMachine(class_count, clause_count, feature_count, state_count,
-                             s, threshold)
-    assert machine.automata.shape == (2 * clause_count, feature_count)
+        Returns:
+            Boolean matrix with actions (True or False) for each autonoma.
+        """
+        return automata_tensor > self.state_count
+
+    def evaluate_clauses(self, input: torch.ByteTensor) -> torch.ByteTensor:
+        """Evaluate all clauses in the array.
+
+        Args:
+            input: 1D boolean array of length feature count holding the input
+                vector to the machine.
+
+        Returns:
+            1D boolean array of the outputs of each clause. The first half
+                contains the positive polarity clauses, the second half contains
+                the negative polarity clauses.
+        """
+
+        action = self.action(self.automata)
+        input = input.expand_as(action)
+        used = action & input
+
+        conjunction = used.eq(input * used)
 
 
-check_machine()
+        action_inv = self.action(self.automata_inv)
+        input_inv = (~input).expand_as(action_inv)
+        used_inv = action_inv & input_inv
+
+
+
+
+        action_inverted = self.action(self.inverting_automata)
+        used = action & input  # relying on broadcasting here
+        used_inverted = action_inverted & ~input
+
+        selected = torch.mv(self.non_inverting_automata(), input)
+        selected_inverted = torch.mv(self.inverting_automata(), ~input)
+
+
+        input_inverted = ~input
+        return np.array_equal(input & self.used, self.used) and \
+               np.array_equal(input_inverted & self.used_inverted,
+                              self.used_inverted)
+
+if __name__ == '__main__':
+    def check_constructor():
+        machine = TsetlinMachine(class_count=10, clause_count=300,
+                                 feature_count=28*28, state_count=100,
+                                 s=3.9, threshold=15)
+        assert machine.automata.shape == \
+               (2 * machine.clause_count, machine.feature_count)
+
+    print('Testing TsetlinMachine...')
+    check_constructor()
+
+    t1 = torch.Tensor([
+        [1, 2],
+        [3, 4],
+        [5, 6]
+    ])
+
+    t2 = torch.Tensor([
+        [7, 8],
+    ])
+
+    print('t1')
+    print(t1)
+    print('t2')
+    print(t2)
+    print('t2.expand_as(t1)')
+    print(t2.expand_as(t1))
+
+
+    print('...passed')
 
 
 
