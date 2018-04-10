@@ -71,9 +71,11 @@ class TsetlinMachine:
 
         # Each automata in the automata array is randomly initialized to either
         # state_count or state_count + 1
-        initial_state = np.random.randint(state_count, state_count + 2,
-                                          (2 * clause_count, feature_count))
+        shape = (clause_count, feature_count)
+        initial_state = np.random.randint(state_count, state_count + 2, shape)
         self.automata = torch.from_numpy(initial_state)
+        initial_state = np.random.randint(state_count, state_count + 2, shape)
+        self.inverting_automata = torch.from_numpy(initial_state)
 
     def action(self, automata_tensor: IntTensor) -> ByteTensor:
         """Compute the action of the given automata tensor.
@@ -95,12 +97,23 @@ class TsetlinMachine:
                 contains the positive polarity clauses, the second half contains
                 the negative polarity clauses.
         """
+        # We collect the 'used_bits' matrix, those bits selected for the clause
+        # conjunction. Each row of 'used_bits' are the used bits for one clause.
+        used_bits = self.action(self.automata)
 
-        action = self.action(self.automata)
-        input = input.expand_as(action)
-        used = action & input
+        # For each clause, we zero out input bits which are not used. If the
+        # number of remaining bits equals the number of bits in used_bits for
+        # that clause, then the clause is True (the conjunction).
+        matching_bit_count = torch.sum((used_bits & input).int(), 1)
+        used_bit_count = torch.sum(used_bits.int(), 1)
+        conjunction = matching_bit_count.eq(used_bit_count)
 
-        conjunction = used.eq(input * used)
+        # Repeat the above computations for the inverting automata
+        inv_matching_bit_count = torch.sum((used_bits & ~input).int(), 1)
+        inv_used_bit_count = torch.sum(used_bits.int(), 1)
+        inv_conjunction = matching_bit_count.eq(used_bit_count)
+
+
 
 
         action_inv = self.action(self.automata_inv)
@@ -111,7 +124,7 @@ class TsetlinMachine:
 
 
         action_inverted = self.action(self.inverting_automata)
-        used = action & input  # relying on broadcasting here
+        used = used_bits & input  # relying on broadcasting here
         used_inverted = action_inverted & ~input
 
         selected = torch.mv(self.non_inverting_automata(), input)
@@ -123,16 +136,61 @@ class TsetlinMachine:
                np.array_equal(input_inverted & self.used_inverted,
                               self.used_inverted)
 
+def test_foo():
+    assert True
+
 if __name__ == '__main__':
     def check_constructor():
         machine = TsetlinMachine(class_count=10, clause_count=300,
                                  feature_count=28*28, state_count=100,
                                  s=3.9, threshold=15)
         assert machine.automata.shape == \
-               (2 * machine.clause_count, machine.feature_count)
+               (machine.clause_count, machine.feature_count)
+        assert machine.inverting_automata.shape == \
+               (machine.clause_count, machine.feature_count)
+
+    def check_conjunction():
+        """Test conjunction of used_bits and input."""
+        used_bits = ByteTensor([
+            [0, 1, 0],
+            [1, 1, 0],
+            [1, 1, 1],
+            [0, 0, 1]
+        ])
+        input = ByteTensor([0, 1, 0])
+        conjunction = used_bits & input.expand_as(used_bits)
+        expected_conjunction = ByteTensor([
+            [0, 1, 0],
+            [0, 1, 0],
+            [0, 1, 0],
+            [0, 0, 0]
+        ])
+        assert conjunction.equal(expected_conjunction)
+
+        used_row_sums = torch.sum(used_bits.int(), 1)
+        conjunction_row_sums = torch.sum(conjunction.int(), 1)
+        final_conjunction = used_row_sums.eq(conjunction_row_sums)
+        expected_final = ByteTensor([1, 0, 0, 0])
+        assert final_conjunction.equal(expected_final)
+
+        ##################################################################33
+        # Repeat the above computations for the inverting automata
+        inv_used_bits = ByteTensor([
+            [0, 1, 0],
+            [1, 1, 0],
+            [1, 1, 1],
+            [0, 0, 1]
+        ])
+        inv_conjunction = used_bits & (~input).expand_as(used_bits)
+        inv_matching_bit_count = torch.sum((used_bits & ~input).int(), 1)
+        inv_used_bit_count = torch.sum(used_bits.int(), 1)
+        inv_conjunction = inv_matching_bit_count.eq(inv_used_bit_count)
+
+
 
     print('Testing TsetlinMachine...')
     check_constructor()
+    check_conjunction()
 
     t1 = torch.Tensor([
         [1, 2],
@@ -150,7 +208,6 @@ if __name__ == '__main__':
     print(t2)
     print('t2.expand_as(t1)')
     print(t2.expand_as(t1))
-
 
     print('...passed')
 
