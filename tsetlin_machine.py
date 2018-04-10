@@ -59,6 +59,7 @@ class TsetlinMachine:
     """
     def __init__(self, class_count: int, clause_count: int, feature_count: int,
                  state_count: int, s, threshold):
+        print('creating machine...')
         # The clauses are divided equally between the classes.
         if (clause_count // class_count) * class_count != clause_count:
             raise ValueError('clause_count must be a multiple of class_count')
@@ -79,10 +80,10 @@ class TsetlinMachine:
 
         self.action = self.automata > self.state_count
         self.inverting_action = self.inverting_automata > self.state_count
+        print('...done')
 
     def update_action(self):
-        """Compute the action of the given automata tensor.
-        """
+        """Update the actions from the automata, needed after learning."""
         self.action = self.automata > self.state_count
         self.inverting_action = self.inverting_automata > self.state_count
 
@@ -90,7 +91,7 @@ class TsetlinMachine:
         """Evaluate all clauses in the array.
 
         Args:
-            input: 1D boolean array of length feature count holding the input
+            input: 1D boolean array (length = feature_count) holding the input
                 vector to the machine.
 
         Returns:
@@ -126,14 +127,96 @@ class TsetlinMachine:
         clause_result = conjunction & inv_conjunction
         return clause_result
 
-    def sum_up_class_votes(self) -> IntTensor:
-        pass
+    def sum_up_class_votes(self, clause_outputs: ByteTensor) -> IntTensor:
+        """Add up votes for all classes.
 
-def test_foo():
-    assert True
+        Args:
+            clause_outputs: 1D boolean array of the outputs of each clause.
+                The first half contains the positive polarity clauses, the
+                second half contains the negative polarity clauses.
+
+        Returns:
+            1D tensor with vote count for each class.
+
+        """
+        # We split the clauses into positive polarity and negative polarity,
+        # then compute the polarity-weighted votes.
+        clauses = clause_outputs.shape[0]
+        positive = clause_outputs[0 : clauses // 2]
+        negative = clause_outputs[clauses//2 :]
+        votes = positive - negative
+
+        # The votes are spread evenly across the classes.
+        votes_per_class = votes.shape[0] // self.class_count
+        class_votes = []
+        offset = 0
+        for c in range(self.class_count):
+            subvotes = votes[offset : offset + votes_per_class]
+            sum = torch.sum(subvotes)
+
+            # Not clear how the following block helps
+            if sum > self.threshold:
+                sum = self.threshold
+            elif sum < -self.threshold:
+                sum = -self.threshold
+
+            class_votes.append(sum)
+        return IntTensor(class_votes)
+
+    def predict(self, input: ByteTensor) -> IntTensor:
+        """Forward inference of input.
+
+        Args:
+            input: 1D boolean input.
+
+        Returns:
+            The index of the class of the input (scalar held in tensor).
+        """
+        clause_outputs = self.evaluate_clauses(input)
+        class_votes = self.sum_up_class_votes(clause_outputs)
+        value, index = torch.max(class_votes, 0)
+        return index
+
+    def evaluate(self, inputs: ByteTensor, targets: IntTensor) -> float:
+        """Evaluate the machine on a dataset.
+
+        Args:
+            inputs: 2D array of inputs, each row is one (boolean) input vector.
+            targets: 1D array of class indices, one for each input.
+
+        Returns:
+            Classification accuracy of the machine.
+        """
+        errors = 0
+        examples = targets.shape[0]
+        for i in range(examples):
+            if i % 100 == 0:
+                print('.', end='', flush=True)
+            input = torch.from_numpy(inputs[i]).byte()
+            target = np.zeros((1, ), dtype=np.int32)
+            target[0] = targets[i]
+            target = torch.from_numpy(target)
+            prediction = self.predict(input).int()
+            if not prediction.equal(target):
+                errors += 1
+        accuracy = (examples - errors) / examples
+        return accuracy
+
+    
+
+
 
 if __name__ == '__main__':
-    pass
+    print('Start')
+    from mnist_demo import mnist_dataset
+    print('creating mnist...')
+    X, y = mnist_dataset(training=False)
+    print('...done')
+    machine = TsetlinMachine(class_count=10, clause_count=200,
+                             feature_count=28*28, state_count=200,
+                             s=3.9, threshold=15)
+    accuracy = machine.evaluate(X, y)
+    print('accuracy:', accuracy)
 
 
 
