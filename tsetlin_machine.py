@@ -1,4 +1,5 @@
 import numpy as np
+import random
 import torch
 from torch import IntTensor, ByteTensor
 
@@ -202,7 +203,19 @@ class TsetlinMachine:
         accuracy = (examples - errors) / examples
         return accuracy
 
-    
+    def train(self, input: ByteTensor, target: int):
+        """Train the machine with a single example.
+
+        Args:
+            input: 1D array of booleans.
+            target: The class of the input
+
+        """
+        # Randomly pick one of the other classes for pairwise learning.
+        negative_target_class = target
+        while negative_target_class == target:
+            negative_target_class = random.randint(0, self.class_count)
+
 
 
 
