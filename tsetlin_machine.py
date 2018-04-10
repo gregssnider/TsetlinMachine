@@ -157,7 +157,9 @@ if __name__ == '__main__':
             [1, 1, 1],
             [0, 0, 1]
         ])
-        input = ByteTensor([0, 1, 0])
+        input = ByteTensor(
+            [0, 1, 0]
+        )
         conjunction = used_bits & input.expand_as(used_bits)
         expected_conjunction = ByteTensor([
             [0, 1, 0],
@@ -170,22 +172,42 @@ if __name__ == '__main__':
         used_row_sums = torch.sum(used_bits.int(), 1)
         conjunction_row_sums = torch.sum(conjunction.int(), 1)
         final_conjunction = used_row_sums.eq(conjunction_row_sums)
-        expected_final = ByteTensor([1, 0, 0, 0])
+        expected_final = ByteTensor(
+            [1, 0, 0, 0]
+        )
         assert final_conjunction.equal(expected_final)
 
-        ##################################################################33
+        ##################################################################
         # Repeat the above computations for the inverting automata
+        ##################################################################
+        inv_input = ByteTensor(
+            [1, 0, 1]
+        )
+        assert inv_input.equal(~input)
+        assert inv_input.equal(input ^ 1)
         inv_used_bits = ByteTensor([
-            [0, 1, 0],
+            [1, 0, 1],
             [1, 1, 0],
             [1, 1, 1],
             [0, 0, 1]
         ])
-        inv_conjunction = used_bits & (~input).expand_as(used_bits)
-        inv_matching_bit_count = torch.sum((used_bits & ~input).int(), 1)
-        inv_used_bit_count = torch.sum(used_bits.int(), 1)
-        inv_conjunction = inv_matching_bit_count.eq(inv_used_bit_count)
+        inv_conjunction = inv_used_bits & (inv_input).expand_as(inv_used_bits)
+        expected_inv_conjunction = ByteTensor([
+            [1, 0, 1],
+            [1, 0, 0],
+            [1, 0, 1],
+            [0, 0, 1]
+        ])
+        assert inv_conjunction.equal(expected_inv_conjunction)
 
+        inv_used_row_sums = torch.sum(inv_used_bits.int(), 1)
+        inv_conjunction_row_sums = torch.sum(inv_conjunction.int(), 1)
+        inv_final_conjunction = inv_used_row_sums.eq(inv_conjunction_row_sums)
+        print(inv_final_conjunction)
+        inv_expected_final = ByteTensor(
+            [1, 0, 0, 0]
+        )
+        assert inv_final_conjunction.equal(inv_expected_final)
 
 
     print('Testing TsetlinMachine...')
