@@ -263,6 +263,8 @@ cdef class MultiClassTsetlinMachine:
         cdef int negative_target_class
         cdef int action_include, action_include_negated
         cdef int global_clause_index
+        cdef int clause_output
+        cdef int feedback
 
         # Randomly pick one of the other classes, for pairwise learning of class output
         negative_target_class = int(self.number_of_classes * 1.0*rand()/RAND_MAX)
@@ -317,12 +319,13 @@ cdef class MultiClassTsetlinMachine:
         #################################
 
         for j in xrange(self.number_of_clauses):
-            if self.feedback_to_clauses[j] > 0:
+            clause_output = self.clause_output[j]
+            feedback = self.feedback_to_clauses[j]
+            if feedback > 0:
                 ####################################################
                 ### Type I Feedback (Combats False Negatives) ###
                 ####################################################
-
-                if self.clause_output[j] == 0:
+                if clause_output == 0:
                     self.get_random_values()
                     for k in xrange(self.number_of_features):
                         if self.random_values[k] <= 1.0/self.s:
@@ -333,7 +336,7 @@ cdef class MultiClassTsetlinMachine:
                         if self.random_values[k] <= 1.0/self.s:
                             self.ta_state[j,k,1] -= 1
 
-                elif self.clause_output[j] == 1:
+                elif clause_output == 1:
                     self.get_random_values()
                     for k in xrange(self.number_of_features):
                         if self.random_values[k] <= 1.0 * (self.s-1)/self.s:
@@ -344,11 +347,11 @@ cdef class MultiClassTsetlinMachine:
                         if self.random_values[k] <= 1.0/self.s:
                             self.ta_state[j,k,X[k]] -= 1
 
-            elif self.feedback_to_clauses[j] < 0:
+            elif feedback < 0:
                 #####################################################
                 ### Type II Feedback (Combats False Positives) ###
                 #####################################################
-                if self.clause_output[j] == 1:
+                if clause_output == 1:
                     for k in xrange(self.number_of_features):
                         action_include = self.action(self.ta_state[j,k,0])
                         action_include_negated = self.action(self.ta_state[j,k,1])
@@ -359,6 +362,8 @@ cdef class MultiClassTsetlinMachine:
                         elif X[k] == 1:
                             if action_include_negated == 0:
                                 self.ta_state[j,k,1] += 1
+            else:
+                pass  # print('zero feedback')
 
             # Clamping automata to the range [1, 2 * number_of_states]
             for k in xrange(self.number_of_features):
