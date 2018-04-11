@@ -274,50 +274,26 @@ cdef class MultiClassTsetlinMachine:
             self.feedback_to_clauses[j] = 0
 
         # Calculate feedback to clauses
+
+        # Feedback to target class
         for j in xrange(self.clause_count[target_class]):
             if 1.0*rand()/RAND_MAX > (1.0/(self.threshold*2))*(self.threshold -
                                       self.class_sum[target_class]):
                 continue
 
-            # The following lines:
             global_clause_index = self.clause_sign[target_class, j, 0]
             self.feedback_to_clauses[global_clause_index] += \
                 self.clause_sign[target_class, j, 1]
 
-            # Replace the following:
-            '''
-            if self.clause_sign[target_class,j,1] > 0:
-                # Type I Feedback
-                self.feedback_to_clauses[self.clause_sign[target_class,j,0]] += 1
-
-            elif self.clause_sign[target_class,j,1] < 0:
-                # Type II Feedback
-                self.feedback_to_clauses[self.clause_sign[target_class,j,0]] -= 1
-            else:
-                print('sign bit not equal -1 or 1')
-            '''
-
-
+        # Feedback to negative target class
         for j in xrange(self.clause_count[negative_target_class]):
             if 1.0*rand()/RAND_MAX > (1.0/(self.threshold*2))*(self.threshold +
                                       self.class_sum[negative_target_class]):
                 continue
 
-            # The following lines:
             global_clause_index = self.clause_sign[negative_target_class, j, 0]
             self.feedback_to_clauses[global_clause_index] -= \
                 self.clause_sign[negative_target_class, j, 1]
-
-            # Replace the following:
-            '''
-            if self.clause_sign[negative_target_class,j,1] > 0:
-                # Type II Feedback
-                self.feedback_to_clauses[self.clause_sign[negative_target_class,j,0]] -= 1
-
-            elif self.clause_sign[negative_target_class,j,1] < 0:
-                # Type I Feedback
-                self.feedback_to_clauses[self.clause_sign[negative_target_class,j,0]] += 1
-            '''
 
 
         #################################
