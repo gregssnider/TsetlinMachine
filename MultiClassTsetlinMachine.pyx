@@ -45,8 +45,8 @@ cdef class MultiClassTsetlinMachine:
     cdef float s
     cdef int number_of_states
 
-    cdef int[:,:] ta_state           # indices:  [clause, feature]
-    cdef int[:,:] ta_state_neg       # indices:  [clause, feature]
+    cdef int[:,:] ta_state             # indices:  [clause, feature]
+    cdef int[:,:] ta_state_neg         # indices:  [clause, feature]
 
     cdef int[:] clause_count
     cdef int[:,:] clause_sign          # indices: [class_index, clause_in_class]
@@ -60,7 +60,7 @@ cdef class MultiClassTsetlinMachine:
 
     cdef int threshold
 
-    cdef float[:] random_values       # length = number_of_features
+    cdef float[:,:] random_values      # indices: [clause, feature]
 
     # Initialization of the Tsetlin Machine
     def __init__(self, number_of_classes, number_of_clauses, number_of_features, number_of_states, s, threshold):
@@ -96,7 +96,7 @@ cdef class MultiClassTsetlinMachine:
         self.feedback_to_clauses = np.zeros(shape=(self.number_of_clauses), dtype=np.int32)
 
         # Random feature stuff
-        self.random_values = np.zeros(shape=(self.number_of_features, ), dtype=np.float32)
+        self.random_values = np.zeros(shape=(self.number_of_clauses, self.number_of_features), dtype=np.float32)
 
         # Set up the Tsetlin Machine structure
         for i in xrange(self.number_of_classes):
@@ -121,9 +121,12 @@ cdef class MultiClassTsetlinMachine:
 
     # Fill self.random_values with random numbers in the range [0, 1)
     cdef void get_random_values(self):
-        cdef int i
-        for i in xrange(self.number_of_features):
-            self.random_values[i] = 1.0 * rand() / RAND_MAX
+        cdef int f
+        cdef int c
+
+        for c in xrange(self.number_of_clauses):
+            for f in xrange(self.number_of_features):
+                self.random_values[c, f] = 1.0 * rand() / RAND_MAX
 
 
     # Calculate the output of each clause using the actions of each
@@ -318,6 +321,7 @@ cdef class MultiClassTsetlinMachine:
         #################################
 
         # Update regular automata
+        self.get_random_values()
         for j in xrange(self.number_of_clauses):
             clause_output = self.clause_output[j]
             feedback = self.feedback_to_clauses[j]
@@ -326,17 +330,15 @@ cdef class MultiClassTsetlinMachine:
                 ### Type I Feedback (Combats False Negatives) ###
                 ####################################################
                 if clause_output == 0:
-                    self.get_random_values()
                     for k in xrange(self.number_of_features):
-                        if self.random_values[k] <= 1.0 / self.s:
+                        if self.random_values[j, k] <= 1.0 / self.s:
                             self.ta_state[j, k] -= 1
 
                 elif clause_output == 1:
-                    self.get_random_values()
                     for k in xrange(self.number_of_features):
-                        if X[k] == 1 and self.random_values[k] <= 1.0 * (self.s - 1) / self.s:
+                        if X[k] == 1 and self.random_values[j, k] <= 1.0 * (self.s - 1) / self.s:
                             self.ta_state[j, k] += 1
-                        if X[k] == 0 and self.random_values[k] <= 1.0/self.s:
+                        if X[k] == 0 and self.random_values[j, k] <= 1.0/self.s:
                             self.ta_state[j, k] -= 1
 
             elif feedback < 0:
@@ -352,6 +354,7 @@ cdef class MultiClassTsetlinMachine:
                 pass  # print('zero feedback')
 
         # Update negated automata
+        self.get_random_values()
         for j in xrange(self.number_of_clauses):
             clause_output = self.clause_output[j]
             feedback = self.feedback_to_clauses[j]
@@ -360,17 +363,15 @@ cdef class MultiClassTsetlinMachine:
                 ### Type I Feedback (Combats False Negatives) ###
                 ####################################################
                 if clause_output == 0:
-                    self.get_random_values()
                     for k in xrange(self.number_of_features):
-                        if self.random_values[k] <= 1.0 / self.s:
+                        if self.random_values[j, k] <= 1.0 / self.s:
                             self.ta_state_neg[j, k] -= 1
 
                 elif clause_output == 1:
-                    self.get_random_values()
                     for k in xrange(self.number_of_features):
-                        if X[k] == 0 and self.random_values[k] <= 1.0 * (self.s - 1) / self.s:
+                        if X[k] == 0 and self.random_values[j, k] <= 1.0 * (self.s - 1) / self.s:
                             self.ta_state_neg[j, k] += 1
-                        if X[k] == 1 and self.random_values[k] <= 1.0/self.s:
+                        if X[k] == 1 and self.random_values[j, k] <= 1.0/self.s:
                             self.ta_state_neg[j, k] -= 1
 
             elif feedback < 0:
