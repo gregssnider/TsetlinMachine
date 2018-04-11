@@ -336,15 +336,14 @@ cdef class MultiClassTsetlinMachine:
                 ####################################################
                 if clause_output == 0:
                     for k in xrange(self.number_of_features):
-                        if self.small_random_threshold[j, k]:
-                            self.ta_state[j, k] -= 1
+                        self.ta_state[j, k] -= self.small_random_threshold[j, k]
 
                 elif clause_output == 1:
                     for k in xrange(self.number_of_features):
-                        if X[k] == 1 and self.big_random_threshold[j, k]:
-                            self.ta_state[j, k] += 1
-                        if X[k] == 0 and self.small_random_threshold[j, k]:
-                            self.ta_state[j, k] -= 1
+                        if X[k] == 1:
+                            self.ta_state[j, k] += self.big_random_threshold[j, k]
+                        if X[k] == 0:
+                            self.ta_state[j, k] -= self.small_random_threshold[j, k]
 
             elif feedback < 0:
                 #####################################################
@@ -369,15 +368,14 @@ cdef class MultiClassTsetlinMachine:
                 ####################################################
                 if clause_output == 0:
                     for k in xrange(self.number_of_features):
-                        if self.small_random_threshold[j, k]:
-                            self.ta_state_neg[j, k] -= 1
+                        self.ta_state_neg[j, k] -= self.small_random_threshold[j, k]
 
                 elif clause_output == 1:
                     for k in xrange(self.number_of_features):
-                        if X[k] == 0 and self.big_random_threshold[j, k] :
-                            self.ta_state_neg[j, k] += 1
-                        if X[k] == 1 and self.small_random_threshold[j, k]:
-                            self.ta_state_neg[j, k] -= 1
+                        if X[k] == 0:
+                            self.ta_state_neg[j, k] += self.big_random_threshold[j, k]
+                        if X[k] == 1:
+                            self.ta_state_neg[j, k] -= self.small_random_threshold[j, k]
 
             elif feedback < 0:
                 #####################################################
