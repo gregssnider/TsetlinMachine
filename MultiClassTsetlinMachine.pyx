@@ -61,7 +61,6 @@ cdef class MultiClassTsetlinMachine:
 
     cdef int threshold
 
-    cdef float[:,:] random_values          # indices: [clause, feature]
     cdef int[:,:] big_random_threshold     # indices: [clause, feature] (boolean)
     cdef int[:,:] small_random_threshold   # indices: [clause, feature] (boolean)
 
@@ -99,7 +98,6 @@ cdef class MultiClassTsetlinMachine:
         self.feedback_to_clauses = np.zeros(shape=(self.number_of_clauses), dtype=np.int32)
 
         # Random feature stuff
-        self.random_values = np.zeros(shape=(self.number_of_clauses, self.number_of_features), dtype=np.float32)
         self.big_random_threshold = np.zeros((self.number_of_clauses, self.number_of_features), dtype=np.int32)
         self.small_random_threshold = np.zeros((self.number_of_clauses, self.number_of_features), dtype=np.int32)
 
@@ -124,16 +122,17 @@ cdef class MultiClassTsetlinMachine:
                 #      'clause_sign[..., 1]:', self.clause_sign[i, self.clause_count[i], 1])
                 self.clause_count[i] += 1
 
-    # Fill self.random_values with random numbers in the range [0, 1)
+    # Fill random threshold arrays.
     cdef void get_random_values(self):
         cdef int f
         cdef int c
+        cdef double value
 
         for c in xrange(self.number_of_clauses):
             for f in xrange(self.number_of_features):
-                self.random_values[c, f] = 1.0 * rand() / RAND_MAX
-                self.big_random_threshold[c, f] = self.random_values[c, f] < 1.0 * (self.s - 1) / self.s
-                self.small_random_threshold[c, f] = self.random_values[c, f] < 1.0 / self.s
+                value = 1.0 * rand() / RAND_MAX
+                self.big_random_threshold[c, f] = value < 1.0 * (self.s - 1) / self.s
+                self.small_random_threshold[c, f] = value < 1.0 / self.s
 
     # Calculate the output of each clause using the actions of each
     # Tsetline Automaton.
