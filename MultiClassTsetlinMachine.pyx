@@ -28,6 +28,11 @@ cimport numpy as np
 import random
 from libc.stdlib cimport rand, RAND_MAX
 
+# Clamp an integer to the range [smallest, largest]
+def clamp(x, smallest, largest):
+    return max(min(x, largest), smallest)
+
+
 ########################################
 ### The Multiclass Tsetlin Machine #####
 ########################################
@@ -241,6 +246,7 @@ cdef class MultiClassTsetlinMachine:
         cdef int i, j
         cdef int negative_target_class
         cdef int action_include, action_include_negated
+        cdef int global_clause_index
 
         # Randomly pick one of the other classes, for pairwise learning of class output
         negative_target_class = int(self.number_of_classes * 1.0*rand()/RAND_MAX)
@@ -327,32 +333,39 @@ cdef class MultiClassTsetlinMachine:
                 if self.clause_output[j] == 0:
                     for k in xrange(self.number_of_features):
                         if 1.0*rand()/RAND_MAX <= 1.0/self.s:
-                            if self.ta_state[j,k,0] > 1:
+                            #if self.ta_state[j,k,0] > 1:
                                 self.ta_state[j,k,0] -= 1
 
                         if 1.0*rand()/RAND_MAX <= 1.0/self.s:
-                            if self.ta_state[j,k,1] > 1:
+                            #if self.ta_state[j,k,1] > 1:
                                 self.ta_state[j,k,1] -= 1
 
                 elif self.clause_output[j] == 1:
                     for k in xrange(self.number_of_features):
                         if X[k] == 1:
                             if 1.0*rand()/RAND_MAX <= 1.0 * (self.s-1)/self.s:
-                                if self.ta_state[j,k,0] < self.number_of_states*2:
+                                #if self.ta_state[j,k,0] < self.number_of_states*2:
                                     self.ta_state[j,k,0] += 1
 
                             if 1.0*rand()/RAND_MAX <= 1.0/self.s:
-                                if self.ta_state[j,k,1] > 1:
+                                #if self.ta_state[j,k,1] > 1:
                                     self.ta_state[j,k,1] -= 1
 
                         elif X[k] == 0:
                             if 1.0*rand()/RAND_MAX <= 1.0 * (self.s-1)/self.s:
-                                if self.ta_state[j,k,1] < self.number_of_states*2:
+                                #if self.ta_state[j,k,1] < self.number_of_states*2:
                                     self.ta_state[j,k,1] += 1
 
                             if 1.0*rand()/RAND_MAX <= 1.0/self.s:
-                                if self.ta_state[j,k,0] > 1:
+                                #if self.ta_state[j,k,0] > 1:
                                     self.ta_state[j,k,0] -= 1
+
+                # Clamping automata to the range [1, 2 * number_of_states]
+                min_index = 1
+                max_index = self.number_of_states * 2
+                for k in xrange(self.number_of_features):
+                    self.ta_state[j, k, 0] = clamp(self.ta_state[j, k, 0], min_index, max_index)
+                    self.ta_state[j, k, 1] = clamp(self.ta_state[j, k, 1], min_index, max_index)
 
             elif self.feedback_to_clauses[j] < 0:
                 #####################################################
