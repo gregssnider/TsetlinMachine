@@ -25,6 +25,7 @@
 
 import numpy as np
 cimport numpy as np
+np.import_array()
 import random
 from libc.stdlib cimport rand, RAND_MAX
 
