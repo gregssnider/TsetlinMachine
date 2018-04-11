@@ -370,11 +370,11 @@ cdef class MultiClassTsetlinMachine:
                         action_include_negated = self.action(self.ta_state[j,k,1])
 
                         if X[k] == 0:
-                            if action_include == 0 and self.ta_state[j,k,0] < self.number_of_states*2:
+                            if action_include == 0: # and self.ta_state[j,k,0] < self.number_of_states*2:
                                 #if 1.0*rand()/RAND_MAX <= 1.0:
                                     self.ta_state[j,k,0] += 1
                         elif X[k] == 1:
-                            if action_include_negated == 0 and self.ta_state[j,k,1] < self.number_of_states*2:
+                            if action_include_negated == 0: # and self.ta_state[j,k,1] < self.number_of_states*2:
                                 #if 1.0*rand()/RAND_MAX <= 1.0:
                                     self.ta_state[j,k,1] += 1
 
@@ -389,10 +389,6 @@ cdef class MultiClassTsetlinMachine:
                 if self.ta_state[j, k, 1] > self.number_of_states * 2:
                     self.ta_state[j, k, 1] = self.number_of_states * 2
 
-                '''
-                self.ta_state[j, k, 0] = clamp(self.ta_state[j, k, 0], min_index, max_index)
-                self.ta_state[j, k, 1] = clamp(self.ta_state[j, k, 1], min_index, max_index)
-                '''
 
     ##############################################
     ### Batch Mode Training of Tsetlin Machine ###
