@@ -391,18 +391,12 @@ cdef class MultiClassTsetlinMachine:
         # Clamping ta_state to the range [1, 2 * number_of_states]
         for j in xrange(self.number_of_clauses):
             for k in xrange(self.number_of_features):
-                if self.ta_state[j, k] < 1:
-                    self.ta_state[j, k] = 1
-                if self.ta_state[j, k] > self.number_of_states * 2:
-                    self.ta_state[j, k] = self.number_of_states * 2
+                self.ta_state[j, k] = max(min(self.ta_state[j, k], self.number_of_states * 2), 1)
 
         # Clamping ta_state_neg to the range [1, 2 * number_of_states]
         for j in xrange(self.number_of_clauses):
             for k in xrange(self.number_of_features):
-                if self.ta_state_neg[j, k] < 1:
-                    self.ta_state_neg[j, k] = 1
-                if self.ta_state_neg[j, k] > self.number_of_states * 2:
-                    self.ta_state_neg[j, k] = self.number_of_states * 2
+                self.ta_state_neg[j, k] = max(min(self.ta_state_neg[j, k], self.number_of_states * 2), 1)
 
 
     ##############################################
