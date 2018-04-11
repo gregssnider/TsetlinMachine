@@ -45,11 +45,12 @@ cdef class MultiClassTsetlinMachine:
     cdef float s
     cdef int number_of_states
 
-    cdef int[:,:,:] ta_state
+    cdef int[:,:] ta_state           # indices:  [clause, feature]
+    cdef int[:,:] ta_state_neg       # indices:  [clause, feature]
 
     cdef int[:] clause_count
-    cdef int[:,:] clause_sign         # indices: [class_index, clause_in_class]
-    cdef int[:,:] global_clause_index   # indices: [class_index, clause_in_class]
+    cdef int[:,:] clause_sign          # indices: [class_index, clause_in_class]
+    cdef int[:,:] global_clause_index  # indices: [class_index, clause_in_class]
 
     cdef int[:] clause_output
 
@@ -76,7 +77,9 @@ cdef class MultiClassTsetlinMachine:
         # The state of each Tsetlin Automaton is stored here. The automata are
         # randomly initialized to either 'number_of_states' or 'number_of_states' + 1.
         self.ta_state = np.random.choice([self.number_of_states, self.number_of_states+1],
-            size=(self.number_of_clauses, self.number_of_features, 2)).astype(dtype=np.int32)
+            size=(self.number_of_clauses, self.number_of_features)).astype(dtype=np.int32)
+        self.ta_state_neg = np.random.choice([self.number_of_states, self.number_of_states+1],
+            size=(self.number_of_clauses, self.number_of_features)).astype(dtype=np.int32)
 
         # Data structures for keeping track of which clause refers to which class,
         # and the sign of the clause
@@ -133,8 +136,8 @@ cdef class MultiClassTsetlinMachine:
         for j in xrange(self.number_of_clauses):
             self.clause_output[j] = 1
             for k in xrange(self.number_of_features):
-                action_include = self.action(self.ta_state[j,k,0])
-                action_include_negated = self.action(self.ta_state[j,k,1])
+                action_include = self.action(self.ta_state[j,k])
+                action_include_negated = self.action(self.ta_state_neg[j,k])
 
                 if (action_include == 1 and X[k] == 0) or \
                    (action_include_negated == 1 and X[k] == 1):
@@ -204,7 +207,11 @@ cdef class MultiClassTsetlinMachine:
     # Get the state of a specific automaton, indexed by clause, feature, and
     # automaton type (include/include negated).
     def get_state(self, int clause, int feature, int automaton_type):
-        return self.ta_state[clause,feature,automaton_type]
+        if automaton_type == 0:
+            return self.ta_state[clause, feature]
+        else:
+            return self.ta_state_neg[clause, feature]
+
 
     ############################################
     ### Evaluate the Trained Tsetlin Machine ###
@@ -329,23 +336,29 @@ cdef class MultiClassTsetlinMachine:
                     self.get_random_values()
                     for k in xrange(self.number_of_features):
                         if self.random_values[k] <= 1.0 / self.s:
-                            self.ta_state[j, k, 0] -= 1
+                            self.ta_state[j, k] -= 1
 
                     self.get_random_values()
                     for k in xrange(self.number_of_features):
                         if self.random_values[k] <= 1.0 / self.s:
-                            self.ta_state[j, k, 1] -= 1
+                            self.ta_state_neg[j, k] -= 1
 
                 elif clause_output == 1:
                     self.get_random_values()
                     for k in xrange(self.number_of_features):
                         if self.random_values[k] <= 1.0 * (self.s - 1) / self.s:
-                            self.ta_state[j, k, 1-X[k]] += 1
+                            if X[k] == 0:
+                                self.ta_state_neg[j, k] += 1
+                            else:
+                                self.ta_state[j, k] += 1
 
                     self.get_random_values()
                     for k in xrange(self.number_of_features):
                         if self.random_values[k] <= 1.0/self.s:
-                            self.ta_state[j, k, X[k]] -= 1
+                            if X[k] == 0:
+                                self.ta_state[j, k] -= 1
+                            else:
+                                self.ta_state_neg[j, k] -= 1
 
             elif feedback < 0:
                 #####################################################
@@ -353,29 +366,29 @@ cdef class MultiClassTsetlinMachine:
                 #####################################################
                 if clause_output == 1:
                     for k in xrange(self.number_of_features):
-                        action_include = self.action(self.ta_state[j,k,0])
-                        action_include_negated = self.action(self.ta_state[j,k,1])
+                        action_include = self.action(self.ta_state[j,k])
+                        action_include_negated = self.action(self.ta_state_neg[j,k])
 
                         if X[k] == 0:
                             if action_include == 0:
-                                self.ta_state[j,k,0] += 1
+                                self.ta_state[j,k] += 1
                         elif X[k] == 1:
                             if action_include_negated == 0:
-                                self.ta_state[j,k,1] += 1
+                                self.ta_state_neg[j,k] += 1
             else:
                 pass  # print('zero feedback')
 
         # Clamping automata to the range [1, 2 * number_of_states]
         for j in xrange(self.number_of_clauses):
             for k in xrange(self.number_of_features):
-                if self.ta_state[j, k, 0] < 1:
-                    self.ta_state[j, k, 0] = 1
-                if self.ta_state[j, k, 0] > self.number_of_states * 2:
-                    self.ta_state[j, k, 0] = self.number_of_states * 2
-                if self.ta_state[j, k, 1] < 1:
-                    self.ta_state[j, k, 1] = 1
-                if self.ta_state[j, k, 1] > self.number_of_states * 2:
-                    self.ta_state[j, k, 1] = self.number_of_states * 2
+                if self.ta_state[j, k] < 1:
+                    self.ta_state[j, k] = 1
+                if self.ta_state[j, k] > self.number_of_states * 2:
+                    self.ta_state[j, k] = self.number_of_states * 2
+                if self.ta_state_neg[j, k] < 1:
+                    self.ta_state_neg[j, k] = 1
+                if self.ta_state_neg[j, k] > self.number_of_states * 2:
+                    self.ta_state_neg[j, k] = self.number_of_states * 2
 
 
     ##############################################
