@@ -379,11 +379,20 @@ cdef class MultiClassTsetlinMachine:
                                     self.ta_state[j,k,1] += 1
 
             # Clamping automata to the range [1, 2 * number_of_states]
-            min_index = 1
-            max_index = self.number_of_states * 2
             for k in xrange(self.number_of_features):
+                if self.ta_state[j, k, 0] < 1:
+                    self.ta_state[j, k, 0] = 1
+                if self.ta_state[j, k, 0] > self.number_of_states * 2:
+                    self.ta_state[j, k, 0] = self.number_of_states * 2
+                if self.ta_state[j, k, 1] < 1:
+                    self.ta_state[j, k, 1] = 1
+                if self.ta_state[j, k, 1] > self.number_of_states * 2:
+                    self.ta_state[j, k, 1] = self.number_of_states * 2
+
+                '''
                 self.ta_state[j, k, 0] = clamp(self.ta_state[j, k, 0], min_index, max_index)
                 self.ta_state[j, k, 1] = clamp(self.ta_state[j, k, 1], min_index, max_index)
+                '''
 
     ##############################################
     ### Batch Mode Training of Tsetlin Machine ###
