@@ -60,4 +60,23 @@ print("Prediction: x1 = 0, x2 = 1, ... -> y = ", tsetlin_machine.predict(np.arra
 print("Prediction: x1 = 0, x2 = 0, ... -> y = ", tsetlin_machine.predict(np.array([0,0,1,1,1,0,1,1,1,0,0,0],dtype=np.int32)))
 print("Prediction: x1 = 1, x2 = 1, ... -> y = ", tsetlin_machine.predict(np.array([1,1,1,1,1,0,1,1,1,0,0,0],dtype=np.int32)))
 
+# Now do 100 runs and average test set accuracy
+print()
+print('Running 100 times')
+runs = 100
+sum = 0
+for run in range(runs):
+    tsetlin_machine = MultiClassTsetlinMachine.MultiClassTsetlinMachine(
+        number_of_classes, number_of_clauses, number_of_features, states, s, T)
+
+    # Training of the Tsetlin Machine in batch mode. The Tsetlin Machine can also be trained online
+    tsetlin_machine.fit(X_training, y_training, y_training.shape[0],
+                        epochs=epochs)
+    accuracy = tsetlin_machine.evaluate(X_test, y_test, y_test.shape[0])
+    sum += accuracy
+    print('\rrun', run, end='', flush=True)
+print()
+print('average accuracy', sum / runs)
+
+
 

@@ -368,6 +368,6 @@ cdef class MultiClassTsetlinMachine:
 				for j in xrange(self.number_of_features):
 					Xi[j] = X[example_id,j]
 				self.update(Xi, target_class)
-			print('.', end='', flush=True)
+			#print('.', end='', flush=True)
 		return
 			
