@@ -333,32 +333,26 @@ cdef class MultiClassTsetlinMachine:
                 if self.clause_output[j] == 0:
                     for k in xrange(self.number_of_features):
                         if 1.0*rand()/RAND_MAX <= 1.0/self.s:
-                            #if self.ta_state[j,k,0] > 1:
-                                self.ta_state[j,k,0] -= 1
+                            self.ta_state[j,k,0] -= 1
 
                         if 1.0*rand()/RAND_MAX <= 1.0/self.s:
-                            #if self.ta_state[j,k,1] > 1:
-                                self.ta_state[j,k,1] -= 1
+                            self.ta_state[j,k,1] -= 1
 
                 elif self.clause_output[j] == 1:
                     for k in xrange(self.number_of_features):
                         if X[k] == 1:
                             if 1.0*rand()/RAND_MAX <= 1.0 * (self.s-1)/self.s:
-                                #if self.ta_state[j,k,0] < self.number_of_states*2:
-                                    self.ta_state[j,k,0] += 1
+                                self.ta_state[j,k,0] += 1
 
                             if 1.0*rand()/RAND_MAX <= 1.0/self.s:
-                                #if self.ta_state[j,k,1] > 1:
-                                    self.ta_state[j,k,1] -= 1
+                                self.ta_state[j,k,1] -= 1
 
                         elif X[k] == 0:
                             if 1.0*rand()/RAND_MAX <= 1.0 * (self.s-1)/self.s:
-                                #if self.ta_state[j,k,1] < self.number_of_states*2:
-                                    self.ta_state[j,k,1] += 1
+                                self.ta_state[j,k,1] += 1
 
                             if 1.0*rand()/RAND_MAX <= 1.0/self.s:
-                                #if self.ta_state[j,k,0] > 1:
-                                    self.ta_state[j,k,0] -= 1
+                                self.ta_state[j,k,0] -= 1
 
             elif self.feedback_to_clauses[j] < 0:
                 #####################################################
@@ -370,13 +364,11 @@ cdef class MultiClassTsetlinMachine:
                         action_include_negated = self.action(self.ta_state[j,k,1])
 
                         if X[k] == 0:
-                            if action_include == 0: # and self.ta_state[j,k,0] < self.number_of_states*2:
-                                #if 1.0*rand()/RAND_MAX <= 1.0:
-                                    self.ta_state[j,k,0] += 1
+                            if action_include == 0:
+                                self.ta_state[j,k,0] += 1
                         elif X[k] == 1:
-                            if action_include_negated == 0: # and self.ta_state[j,k,1] < self.number_of_states*2:
-                                #if 1.0*rand()/RAND_MAX <= 1.0:
-                                    self.ta_state[j,k,1] += 1
+                            if action_include_negated == 0:
+                                self.ta_state[j,k,1] += 1
 
             # Clamping automata to the range [1, 2 * number_of_states]
             for k in xrange(self.number_of_features):
