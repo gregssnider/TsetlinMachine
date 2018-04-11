@@ -59,6 +59,8 @@ cdef class MultiClassTsetlinMachine:
 
     cdef int threshold
 
+    cdef float[:] random_values       # Of length number_of_features
+
     # Initialization of the Tsetlin Machine
     def __init__(self, number_of_classes, number_of_clauses, number_of_features, number_of_states, s, threshold):
         cdef int[:] target_indexes
@@ -90,6 +92,9 @@ cdef class MultiClassTsetlinMachine:
         self.class_sum = np.zeros(shape=(self.number_of_classes,), dtype=np.int32)
         self.feedback_to_clauses = np.zeros(shape=(self.number_of_clauses), dtype=np.int32)
 
+        # Random feature stuff
+        self.random_values = np.zeros(shape=(self.number_of_features, ), dtype=np.float32)
+
         # Set up the Tsetlin Machine structure
         for i in xrange(self.number_of_classes):
             #print('class', i)
@@ -110,6 +115,13 @@ cdef class MultiClassTsetlinMachine:
                 #print('clause_sign[..., 0]:', self.clause_sign[i, self.clause_count[i], 0],
                 #      'clause_sign[..., 1]:', self.clause_sign[i, self.clause_count[i], 1])
                 self.clause_count[i] += 1
+
+    # Fill self.random_values with random numbers in the range [0, 1)
+    cdef void get_random_values(self):
+        cdef int i
+        for i in xrange(self.number_of_features):
+            self.random_values[i] = 1.0 * rand() / RAND_MAX
+
 
     # Calculate the output of each clause using the actions of each
     # Tsetline Automaton.
