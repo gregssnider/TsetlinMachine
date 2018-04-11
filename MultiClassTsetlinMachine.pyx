@@ -385,10 +385,6 @@ cdef class MultiClassTsetlinMachine:
                         action_include_negated = self.action(self.ta_state_neg[j,k])
                         value = X[k] * (1 - action_include_negated)
                         self.ta_state_neg[j, k] += value
-                        '''
-                        if X[k] == 1 and action_include_negated == 0:
-                            self.ta_state_neg[j,k] += 1
-                        '''
             else:
                 pass  # print('zero feedback')
 
