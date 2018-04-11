@@ -337,14 +337,15 @@ cdef class MultiClassTsetlinMachine:
                 ####################################################
                 if clause_output == 0:
                     for k in xrange(self.number_of_features):
-                        if self.random_values[j, k] <= 1.0 / self.s:
+                        #if self.random_values[j, k] <= 1.0 / self.:
+                        if self.small_random_threshold[j, k] != 0:
                             self.ta_state[j, k] -= 1
 
                 elif clause_output == 1:
                     for k in xrange(self.number_of_features):
-                        if X[k] == 1 and self.random_values[j, k] <= 1.0 * (self.s - 1) / self.s:
+                        if X[k] == 1 and self.big_random_threshold[j, k] != 0:
                             self.ta_state[j, k] += 1
-                        if X[k] == 0 and self.random_values[j, k] <= 1.0/self.s:
+                        if X[k] == 0 and self.small_random_threshold[j, k] != 0:
                             self.ta_state[j, k] -= 1
 
             elif feedback < 0:
@@ -370,14 +371,14 @@ cdef class MultiClassTsetlinMachine:
                 ####################################################
                 if clause_output == 0:
                     for k in xrange(self.number_of_features):
-                        if self.random_values[j, k] <= 1.0 / self.s:
+                        if self.small_random_threshold[j, k] != 0:
                             self.ta_state_neg[j, k] -= 1
 
                 elif clause_output == 1:
                     for k in xrange(self.number_of_features):
-                        if X[k] == 0 and self.random_values[j, k] <= 1.0 * (self.s - 1) / self.s:
+                        if X[k] == 0 and self.big_random_threshold[j, k] != 0:
                             self.ta_state_neg[j, k] += 1
-                        if X[k] == 1 and self.random_values[j, k] <= 1.0 / self.s:
+                        if X[k] == 1 and self.small_random_threshold[j, k] != 0:
                             self.ta_state_neg[j, k] -= 1
 
             elif feedback < 0:
