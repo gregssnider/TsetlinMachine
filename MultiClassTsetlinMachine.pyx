@@ -405,6 +405,8 @@ cdef class MultiClassTsetlinMachine:
                     self.ta_state[j, k] = 1
                 if self.ta_state[j, k] > self.number_of_states * 2:
                     self.ta_state[j, k] = self.number_of_states * 2
+        for j in xrange(self.number_of_clauses):
+            for k in xrange(self.number_of_features):
                 if self.ta_state_neg[j, k] < 1:
                     self.ta_state_neg[j, k] = 1
                 if self.ta_state_neg[j, k] > self.number_of_states * 2:
