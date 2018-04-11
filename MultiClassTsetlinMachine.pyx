@@ -59,7 +59,7 @@ cdef class MultiClassTsetlinMachine:
 
     cdef int threshold
 
-    cdef float[:] random_values       # Of length number_of_features
+    cdef float[:] random_values       # length = number_of_features
 
     # Initialization of the Tsetlin Machine
     def __init__(self, number_of_classes, number_of_clauses, number_of_features, number_of_states, s, threshold):

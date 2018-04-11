@@ -16,6 +16,7 @@ sudo cp -r anaconda3/lib/python3.6/site-packages/numpy/core/include/numpy /usr/l
 """
 import pyximport; pyximport.install()
 import numpy as np
+import time
 
 import MultiClassTsetlinMachine
 
@@ -65,6 +66,7 @@ print()
 print('Running 10 times')
 runs = 10
 sum = 0
+start_time = time.time()
 for run in range(runs):
     tsetlin_machine = MultiClassTsetlinMachine.MultiClassTsetlinMachine(
         number_of_classes, number_of_clauses, number_of_features, states, s, T)
@@ -76,7 +78,7 @@ for run in range(runs):
     sum += accuracy
     print('\rrun', run, end='', flush=True)
 print()
-print('average accuracy', sum / runs)
+print('average accuracy', sum / runs, ', elapsed time', time.time() - start_time)
 
 
 
