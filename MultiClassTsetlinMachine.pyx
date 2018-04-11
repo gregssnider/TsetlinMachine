@@ -334,14 +334,14 @@ cdef class MultiClassTsetlinMachine:
                 elif clause_output == 1:
                     self.get_random_values()
                     for k in xrange(self.number_of_features):
-                        if self.random_values[k] <= 1.0 * (self.s - 1) / self.s:
-                            if X[k] == 1:
+                        if X[k] == 1:
+                            if self.random_values[k] <= 1.0 * (self.s - 1) / self.s:
                                 self.ta_state[j, k] += 1
 
                     self.get_random_values()
                     for k in xrange(self.number_of_features):
-                        if self.random_values[k] <= 1.0/self.s:
-                            if X[k] == 0:
+                        if X[k] == 0:
+                            if self.random_values[k] <= 1.0/self.s:
                                 self.ta_state[j, k] -= 1
 
             elif feedback < 0:
