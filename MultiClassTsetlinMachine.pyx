@@ -204,14 +204,6 @@ cdef class MultiClassTsetlinMachine:
         else:
             return 1
 
-    # Get the state of a specific automaton, indexed by clause, feature, and
-    # automaton type (include/include negated).
-    def get_state(self, int clause, int feature, int automaton_type):
-        if automaton_type == 0:
-            return self.ta_state[clause, feature]
-        else:
-            return self.ta_state_neg[clause, feature]
-
 
     ############################################
     ### Evaluate the Trained Tsetlin Machine ###
