@@ -272,6 +272,8 @@ cdef class MultiClassTsetlinMachine:
         cdef int global_clause_index
         cdef int clause_output
         cdef int feedback
+        cdef int k
+        cdef int value
 
         # Randomly pick one of the other classes, for pairwise learning of class output
         negative_target_class = int(self.number_of_classes * 1.0*rand()/RAND_MAX)
@@ -340,10 +342,15 @@ cdef class MultiClassTsetlinMachine:
 
                 elif clause_output == 1:
                     for k in xrange(self.number_of_features):
+                        value = (X[k] * self.big_random_threshold[j, k] -
+                                 (1 - X[k]) * self.small_random_threshold[j, k])
+                        self.ta_state[j, k] += value
+                        '''
                         if X[k] == 1:
                             self.ta_state[j, k] += self.big_random_threshold[j, k]
                         if X[k] == 0:
                             self.ta_state[j, k] -= self.small_random_threshold[j, k]
+                        '''
 
             elif feedback < 0:
                 #####################################################
