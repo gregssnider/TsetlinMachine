@@ -28,6 +28,7 @@ cimport numpy as np
 np.import_array()
 import random
 from libc.stdlib cimport rand, RAND_MAX
+from libcpp cimport bool
 
 # Clamp an integer to the range [smallest, largest]
 def clamp(x, smallest, largest):
@@ -60,7 +61,9 @@ cdef class MultiClassTsetlinMachine:
 
     cdef int threshold
 
-    cdef float[:,:] random_values      # indices: [clause, feature]
+    cdef float[:,:] random_values          # indices: [clause, feature]
+    cdef int[:,:] big_random_threshold     # indices: [clause, feature] (boolean)
+    cdef int[:,:] small_random_threshold   # indices: [clause, feature] (boolean)
 
     # Initialization of the Tsetlin Machine
     def __init__(self, number_of_classes, number_of_clauses, number_of_features, number_of_states, s, threshold):
@@ -97,6 +100,8 @@ cdef class MultiClassTsetlinMachine:
 
         # Random feature stuff
         self.random_values = np.zeros(shape=(self.number_of_clauses, self.number_of_features), dtype=np.float32)
+        self.big_random_threshold = np.zeros((self.number_of_clauses, self.number_of_features), dtype=np.int32)
+        self.small_random_threshold = np.zeros((self.number_of_clauses, self.number_of_features), dtype=np.int32)
 
         # Set up the Tsetlin Machine structure
         for i in xrange(self.number_of_classes):
@@ -127,7 +132,8 @@ cdef class MultiClassTsetlinMachine:
         for c in xrange(self.number_of_clauses):
             for f in xrange(self.number_of_features):
                 self.random_values[c, f] = 1.0 * rand() / RAND_MAX
-
+                self.big_random_threshold[c, f] = self.random_values[c, f] < 1.0 * (self.s - 1) / self.s
+                self.small_random_threshold[c, f] = self.random_values[c, f] < 1.0 / self.s
 
     # Calculate the output of each clause using the actions of each
     # Tsetline Automaton.
@@ -371,7 +377,7 @@ cdef class MultiClassTsetlinMachine:
                     for k in xrange(self.number_of_features):
                         if X[k] == 0 and self.random_values[j, k] <= 1.0 * (self.s - 1) / self.s:
                             self.ta_state_neg[j, k] += 1
-                        if X[k] == 1 and self.random_values[j, k] <= 1.0/self.s:
+                        if X[k] == 1 and self.random_values[j, k] <= 1.0 / self.s:
                             self.ta_state_neg[j, k] -= 1
 
             elif feedback < 0:
