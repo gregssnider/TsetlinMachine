@@ -216,8 +216,39 @@ class TsetlinMachine:
         while negative_target_class == target:
             negative_target_class = random.randint(0, self.class_count)
 
+        ###############################
+        ### Calculate Clause Output ###
+        ###############################
+        clause_outputs = self.evaluate_clauses(input)
+
+        ###########################
+        ### Sum up Clause Votes ###
+        ###########################
+        votes = self.sum_up_class_votes(clause_outputs)
+
+        #####################################
+        ### Calculate Feedback to Clauses ###
+        #####################################
+
+        # Initialize feedback to clauses
+        feedback = IntTensor((self.clause_count, )).zero_()
+
+        # Calculate feedback to clauses
+
+        # Feedback to target class
 
 
+        #################################
+        ### Train Individual Automata ###
+        #################################
+
+        ####################################################
+        ### Type I Feedback (Combats False Negatives) ###
+        ####################################################
+
+        #####################################################
+        ### Type II Feedback (Combats False Positives) ###
+        #####################################################
 
 if __name__ == '__main__':
     print('Start')

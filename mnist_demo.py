@@ -31,14 +31,18 @@ if __name__ == '__main__':
     number_of_classes = 10
 
     # Training configuration
-    epochs = 2
+    epochs = 1
 
 
     # Loading of training and test data
     training_data = np.loadtxt("NoisyXORTrainingData.txt").astype(dtype=np.int32)
     test_data = np.loadtxt("NoisyXORTestData.txt").astype(dtype=np.int32)
 
+    # Clip training to 10000 examples
     X_training, y_training = mnist_dataset(training=True)
+    X_training = X_training[:10000, :]
+    y_training = y_training[:10000]
+
     X_test, y_test = mnist_dataset(training=False)
 
 
