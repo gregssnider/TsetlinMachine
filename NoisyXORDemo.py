@@ -63,8 +63,8 @@ print("Prediction: x1 = 1, x2 = 1, ... -> y = ", tsetlin_machine.predict(np.arra
 
 # Now do 100 runs and average test set accuracy
 print()
-print('Running 10 times')
-runs = 10
+print('Running 5 times')
+runs = 5
 sum = 0
 start_time = time.time()
 for run in range(runs):

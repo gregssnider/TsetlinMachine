@@ -365,7 +365,8 @@ cdef class MultiClassTsetlinMachine:
             else:
                 pass  # print('zero feedback')
 
-            # Clamping automata to the range [1, 2 * number_of_states]
+        # Clamping automata to the range [1, 2 * number_of_states]
+        for j in xrange(self.number_of_clauses):
             for k in xrange(self.number_of_features):
                 if self.ta_state[j, k, 0] < 1:
                     self.ta_state[j, k, 0] = 1
