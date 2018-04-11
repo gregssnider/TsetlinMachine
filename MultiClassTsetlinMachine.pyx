@@ -336,11 +336,8 @@ cdef class MultiClassTsetlinMachine:
                     for k in xrange(self.number_of_features):
                         if X[k] == 1 and self.random_values[k] <= 1.0 * (self.s - 1) / self.s:
                             self.ta_state[j, k] += 1
-
-                    self.get_random_values()
-                    for k in xrange(self.number_of_features):
                         if X[k] == 0 and self.random_values[k] <= 1.0/self.s:
-                                self.ta_state[j, k] -= 1
+                            self.ta_state[j, k] -= 1
 
             elif feedback < 0:
                 #####################################################
@@ -373,9 +370,6 @@ cdef class MultiClassTsetlinMachine:
                     for k in xrange(self.number_of_features):
                         if X[k] == 0 and self.random_values[k] <= 1.0 * (self.s - 1) / self.s:
                             self.ta_state_neg[j, k] += 1
-
-                    self.get_random_values()
-                    for k in xrange(self.number_of_features):
                         if X[k] == 1 and self.random_values[k] <= 1.0/self.s:
                             self.ta_state_neg[j, k] -= 1
 
