@@ -47,7 +47,8 @@ cdef class MultiClassTsetlinMachine:
     cdef int[:,:,:] ta_state
 
     cdef int[:] clause_count
-    cdef int[:,:,:] clause_sign
+    cdef int[:,:] clause_sign         # indices: [class_index, clause_in_class]
+    cdef int[:,:] global_clause_index   # indices: [class_index, clause_in_class]
 
     cdef int[:] clause_output
 
@@ -78,7 +79,9 @@ cdef class MultiClassTsetlinMachine:
         # and the sign of the clause
         self.clause_count = np.zeros((self.number_of_classes,), dtype=np.int32)
         self.clause_sign = np.zeros((self.number_of_classes,
-            self.number_of_clauses, 2), dtype=np.int32)
+            self.number_of_clauses), dtype=np.int32)
+        self.global_clause_index = np.zeros((self.number_of_classes,
+            self.number_of_clauses), dtype=np.int32)
 
         # Data structures for intermediate calculations (clause output,
         # summation of votes, and feedback to clauses)
@@ -97,12 +100,12 @@ cdef class MultiClassTsetlinMachine:
                 #
                 # clause_sign[..., 1] holds either 1 or -1 (alternating)
                 #
-                self.clause_sign[i,self.clause_count[i],0] = \
+                self.global_clause_index[i,self.clause_count[i]] = \
                     i*(self.number_of_clauses/self.number_of_classes) + j
                 if j % 2 == 0:
-                    self.clause_sign[i, self.clause_count[i], 1] = 1
+                    self.clause_sign[i, self.clause_count[i]] = 1
                 else:
-                    self.clause_sign[i, self.clause_count[i], 1] = -1
+                    self.clause_sign[i, self.clause_count[i]] = -1
                 #print('clause_sign[..., 0]:', self.clause_sign[i, self.clause_count[i], 0],
                 #      'clause_sign[..., 1]:', self.clause_sign[i, self.clause_count[i], 1])
                 self.clause_count[i] += 1
@@ -136,8 +139,8 @@ cdef class MultiClassTsetlinMachine:
 
             for j in xrange(self.clause_count[target_class]):
                 self.class_sum[target_class] += \
-                    self.clause_output[self.clause_sign[target_class,j,0]] * \
-                    self.clause_sign[target_class,j,1]
+                    self.clause_output[self.global_clause_index[target_class,j]] * \
+                        self.clause_sign[target_class,j]
 
             if self.class_sum[target_class] > self.threshold:
                 self.class_sum[target_class] = self.threshold
@@ -281,9 +284,9 @@ cdef class MultiClassTsetlinMachine:
                                       self.class_sum[target_class]):
                 continue
 
-            global_clause_index = self.clause_sign[target_class, j, 0]
+            global_clause_index = self.global_clause_index[target_class, j]
             self.feedback_to_clauses[global_clause_index] += \
-                self.clause_sign[target_class, j, 1]
+                self.clause_sign[target_class, j]
 
         # Feedback to negative target class
         for j in xrange(self.clause_count[negative_target_class]):
@@ -291,9 +294,9 @@ cdef class MultiClassTsetlinMachine:
                                       self.class_sum[negative_target_class]):
                 continue
 
-            global_clause_index = self.clause_sign[negative_target_class, j, 0]
+            global_clause_index = self.global_clause_index[negative_target_class, j]
             self.feedback_to_clauses[global_clause_index] -= \
-                self.clause_sign[negative_target_class, j, 1]
+                self.clause_sign[negative_target_class, j]
 
 
         #################################
