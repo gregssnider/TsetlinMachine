@@ -1,6 +1,8 @@
 import pyximport; pyximport.install()
 import numpy as np
 from torchvision import datasets
+
+import OriginalMultiClassTsetlinMachine
 import MultiClassTsetlinMachine
 
 def mnist_dataset(training=True) -> (np.ndarray, np.ndarray):
@@ -29,7 +31,7 @@ if __name__ == '__main__':
     number_of_classes = 10
 
     # Training configuration
-    epochs = 1
+    epochs = 2
 
 
     # Loading of training and test data
@@ -41,14 +43,26 @@ if __name__ == '__main__':
 
 
     # This is a multiclass variant of the Tsetlin Machine, capable of distinguishing between multiple classes
-    tsetlin_machine = MultiClassTsetlinMachine.MultiClassTsetlinMachine(number_of_classes, number_of_clauses, number_of_features, states, s, T)
-
-    # Training of the Tsetlin Machine in batch mode. The Tsetlin Machine can also be trained online
+    #
+    print('original on MNIST: ', end='', flush=True)
+    tsetlin_machine = OriginalMultiClassTsetlinMachine.OriginalMultiClassTsetlinMachine(number_of_classes, number_of_clauses, number_of_features, states, s, T)
     tsetlin_machine.fit(X_training, y_training, y_training.shape[0], epochs=epochs)
+    print("Accuracy:", tsetlin_machine.evaluate(X_test, y_test, y_test.shape[0]))
 
-    # Some performacne statistics
+    print('     new on MNIST: ', end='', flush=True)
+    tsetlin_machine = MultiClassTsetlinMachine.MultiClassTsetlinMachine(number_of_classes, number_of_clauses, number_of_features, states, s, T)
+    tsetlin_machine.fit(X_training, y_training, y_training.shape[0], epochs=epochs)
+    print("Accuracy:", tsetlin_machine.evaluate(X_test, y_test, y_test.shape[0]))
 
-    print("Accuracy on test data:", tsetlin_machine.evaluate(X_test, y_test, y_test.shape[0]))
+    print('original on MNIST: ', end='', flush=True)
+    tsetlin_machine = OriginalMultiClassTsetlinMachine.OriginalMultiClassTsetlinMachine(number_of_classes, number_of_clauses, number_of_features, states, s, T)
+    tsetlin_machine.fit(X_training, y_training, y_training.shape[0], epochs=epochs)
+    print("Accuracy:", tsetlin_machine.evaluate(X_test, y_test, y_test.shape[0]))
+
+    print('     new on MNIST: ', end='', flush=True)
+    tsetlin_machine = MultiClassTsetlinMachine.MultiClassTsetlinMachine(number_of_classes, number_of_clauses, number_of_features, states, s, T)
+    tsetlin_machine.fit(X_training, y_training, y_training.shape[0], epochs=epochs)
+    print("Accuracy:", tsetlin_machine.evaluate(X_test, y_test, y_test.shape[0]))
     #print("Accuracy on training data:", tsetlin_machine.evaluate(X_training, y_training, y_training.shape[0]))
 
 
