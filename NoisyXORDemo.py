@@ -62,8 +62,8 @@ print("Prediction: x1 = 1, x2 = 1, ... -> y = ", tsetlin_machine.predict(np.arra
 
 # Now do 100 runs and average test set accuracy
 print()
-print('Running 100 times')
-runs = 100
+print('Running 10 times')
+runs = 10
 sum = 0
 for run in range(runs):
     tsetlin_machine = MultiClassTsetlinMachine.MultiClassTsetlinMachine(

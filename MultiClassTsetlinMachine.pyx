@@ -83,9 +83,9 @@ cdef class MultiClassTsetlinMachine:
 
         # Set up the Tsetlin Machine structure
         for i in xrange(self.number_of_classes):
-            print('class', i)
+            #print('class', i)
             for j in xrange(self.number_of_clauses / self.number_of_classes):
-                print('    clause', j, end=' ', flush=True)
+                #print('    clause', j, end=' ', flush=True)
 
                 # clause_sign[..., 0] holds the global index for the clause,
                 # it has nothing to do with the sign. Ugh.
@@ -98,8 +98,8 @@ cdef class MultiClassTsetlinMachine:
                     self.clause_sign[i, self.clause_count[i], 1] = 1
                 else:
                     self.clause_sign[i, self.clause_count[i], 1] = -1
-                print('clause_sign[..., 0]:', self.clause_sign[i, self.clause_count[i], 0],
-                      'clause_sign[..., 1]:', self.clause_sign[i, self.clause_count[i], 1])
+                #print('clause_sign[..., 0]:', self.clause_sign[i, self.clause_count[i], 0],
+                #      'clause_sign[..., 1]:', self.clause_sign[i, self.clause_count[i], 1])
                 self.clause_count[i] += 1
 
     # Calculate the output of each clause using the actions of each
@@ -272,7 +272,14 @@ cdef class MultiClassTsetlinMachine:
             if 1.0*rand()/RAND_MAX > (1.0/(self.threshold*2))*(self.threshold -
                                       self.class_sum[target_class]):
                 continue
-            
+
+            # The following lines:
+            global_clause_index = self.clause_sign[target_class, j, 0]
+            self.feedback_to_clauses[global_clause_index] += \
+                self.clause_sign[target_class, j, 1]
+
+            # Replace the following:
+            '''
             if self.clause_sign[target_class,j,1] > 0:
                 # Type I Feedback
                 self.feedback_to_clauses[self.clause_sign[target_class,j,0]] += 1
@@ -280,12 +287,23 @@ cdef class MultiClassTsetlinMachine:
             elif self.clause_sign[target_class,j,1] < 0:
                 # Type II Feedback
                 self.feedback_to_clauses[self.clause_sign[target_class,j,0]] -= 1
+            else:
+                print('sign bit not equal -1 or 1')
+            '''
+
 
         for j in xrange(self.clause_count[negative_target_class]):
             if 1.0*rand()/RAND_MAX > (1.0/(self.threshold*2))*(self.threshold +
                                       self.class_sum[negative_target_class]):
                 continue
 
+            # The following lines:
+            global_clause_index = self.clause_sign[negative_target_class, j, 0]
+            self.feedback_to_clauses[global_clause_index] -= \
+                self.clause_sign[negative_target_class, j, 1]
+
+            # Replace the following:
+            '''
             if self.clause_sign[negative_target_class,j,1] > 0:
                 # Type II Feedback
                 self.feedback_to_clauses[self.clause_sign[negative_target_class,j,0]] -= 1
@@ -293,6 +311,8 @@ cdef class MultiClassTsetlinMachine:
             elif self.clause_sign[negative_target_class,j,1] < 0:
                 # Type I Feedback
                 self.feedback_to_clauses[self.clause_sign[negative_target_class,j,0]] += 1
+            '''
+
 
         #################################
         ### Train Individual Automata ###
