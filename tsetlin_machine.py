@@ -26,6 +26,7 @@ spec = [
     ('ta_state_neg', int64[:,:]),     # indices: [clause, feature]
     ('clause_count', int64[:]),
     ('clause_sign', int64[:,:,:]),
+    ('global_clause_index', int64[:,:]),  # indices: [class, feature]
     ('clause_output', int64[:]),
     ('class_sum', int64[:]),
     ('feedback_to_clauses', int64[:]),
@@ -58,6 +59,8 @@ class MultiClassTsetlinMachine:
         # Data structures for keeping track of which clause refers to which class, and the sign of the clause
         self.clause_count = np.zeros((self.number_of_classes,), dtype=np.int64)
         self.clause_sign = np.zeros((self.number_of_classes, self.number_of_clauses, 2), dtype=np.int64)
+        self.global_clause_index = np.zeros((self.number_of_classes,
+            self.number_of_clauses), dtype=np.int64)
 
         # Data structures for intermediate calculations (clause output, summation of votes, and feedback to clauses)
         self.clause_output = np.zeros(shape=(self.number_of_clauses,), dtype=np.int64)
@@ -68,6 +71,9 @@ class MultiClassTsetlinMachine:
         for i in range(self.number_of_classes):
             for j in range(self.number_of_clauses / self.number_of_classes):
                 self.clause_sign[i,self.clause_count[i],0] = i*(self.number_of_clauses/self.number_of_classes) + j
+                self.global_clause_index[i, self.clause_count[i]] = \
+                    i * (self.number_of_clauses / self.number_of_classes) + j
+
                 if j % 2 == 0:
                     self.clause_sign[i, self.clause_count[i], 1] = 1
                 else:
