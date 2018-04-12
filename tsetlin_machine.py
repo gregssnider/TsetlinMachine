@@ -292,12 +292,21 @@ class MultiClassTsetlinMachine:
                 ### Type I Feedback (Combats False Negatives) ###
                 ####################################################
 
+                # First do this by rows (clauses)
+                low_delta = inv_clause_matrix[j] * (-low_prob[j])
+                delta = clause_matrix[j] * (X * high_prob[j] - (1-X) * low_prob[j])
+                delta_neg = clause_matrix[j] * (
+                            -X * low_prob[j] + (1 - X) * high_prob[j])
+                self.ta_state[j] += low_delta + delta
+                self.ta_state_neg[j] += low_delta + delta_neg
+                '''
                 for k in range(self.number_of_features):
                     low_delta = (1 - clause_out) * (-low_prob[j, k])
                     delta = clause_out * (X[k] * high_prob[j, k] - (1-X[k]) * low_prob[j, k])
                     delta_neg = clause_out * (-X[k] * low_prob[j, k] + (1-X[k]) * high_prob[j, k])
                     self.ta_state[j, k] += low_delta + delta
                     self.ta_state_neg[j, k] += low_delta + delta_neg
+                '''
 
 
             elif self.feedback_to_clauses[j] < 0:
