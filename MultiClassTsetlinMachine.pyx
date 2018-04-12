@@ -274,6 +274,8 @@ cdef class MultiClassTsetlinMachine:
         cdef int feedback
         cdef int k
         cdef int value
+        cdef int pos_feedback
+        cdef int neg_feedback
 
         # Randomly pick one of the other classes, for pairwise learning of class output
         negative_target_class = int(self.number_of_classes * 1.0*rand()/RAND_MAX)
@@ -331,7 +333,24 @@ cdef class MultiClassTsetlinMachine:
         self.get_random_values()
         for j in xrange(self.number_of_clauses):
             clause_output = self.clause_output[j]
-            feedback = self.feedback_to_clauses[j]
+
+            # clamp feedback to [-1, 1]
+            feedback = max(min(self.feedback_to_clauses[j], 1), -1)
+            pos_feedback = 1 if self.feedback_to_clauses[j] > 0 else 0
+            neg_feedback = 1 if self.feedback_to_clauses[j] < 0 else 0
+
+            for k in xrange(self.number_of_features):
+                ####################################################
+                ### Type I Feedback (Combats False Negatives) ###
+                ####################################################
+                action_include = self.action(self.ta_state[j,k])
+                value = pos_feedback \
+                        * ((1 - clause_output) * -self.small_random_threshold[j, k] \
+                        + (clause_output) * (X[k] * self.big_random_threshold[j, k]
+                        - (1 - X[k]) * self.small_random_threshold[j, k])) \
+                        + neg_feedback * (1 - X[k]) * (1 - action_include) * clause_output
+                self.ta_state[j, k] += value
+            '''
             if feedback > 0:
                 ####################################################
                 ### Type I Feedback (Combats False Negatives) ###
@@ -351,12 +370,29 @@ cdef class MultiClassTsetlinMachine:
                     self.ta_state[j, k] += (1 - X[k]) * (1 - action_include) * clause_output
             else:
                 pass  # print('zero feedback')
+            '''
 
         # Update negated automata
         self.get_random_values()
         for j in xrange(self.number_of_clauses):
             clause_output = self.clause_output[j]
             feedback = self.feedback_to_clauses[j]
+            pos_feedback = 1 if self.feedback_to_clauses[j] > 0 else 0
+            neg_feedback = 1 if self.feedback_to_clauses[j] < 0 else 0
+
+            for k in xrange(self.number_of_features):
+                ####################################################
+                ### Type I Feedback (Combats False Negatives) ###
+                ####################################################
+                action_include_negated = self.action(self.ta_state_neg[j,k])
+                value = pos_feedback \
+                        * ((1 - clause_output) * -self.small_random_threshold[j, k] \
+                        + (clause_output) * ((1 - X[k]) * self.big_random_threshold[j, k]
+                        - (X[k]) * self.small_random_threshold[j, k])) \
+                        + neg_feedback * (X[k]) * (1 - action_include_negated) * clause_output
+                self.ta_state_neg[j, k] += value
+
+            '''
             if feedback > 0:
                 ####################################################
                 ### Type I Feedback (Combats False Negatives) ###
@@ -377,6 +413,7 @@ cdef class MultiClassTsetlinMachine:
                     self.ta_state_neg[j, k] += value
             else:
                 pass  # print('zero feedback')
+            '''
 
         # Clamping ta_state to the range [1, 2 * number_of_states]
         for j in xrange(self.number_of_clauses):
