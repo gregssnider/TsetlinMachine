@@ -279,13 +279,11 @@ class MultiClassTsetlinMachine:
                 ### Type I Feedback (Combats False Negatives) ###
                 ####################################################
 
-                if self.clause_output[j] == 0:
-                    for k in range(self.number_of_features):
+                for k in range(self.number_of_features):
+                    if self.clause_output[j] == 0:
                         self.ta_state[j,k] -= low_prob[j, k]
                         self.ta_state_neg[j,k] -= low_prob[j, k]
-
-                elif self.clause_output[j] == 1:
-                    for k in range(self.number_of_features):
+                    else:
                         if X[k] == 1:
                             self.ta_state[j,k] += high_prob[j, k]
                             self.ta_state_neg[j,k] -= low_prob[j, k]
@@ -298,8 +296,8 @@ class MultiClassTsetlinMachine:
                 #####################################################
                 ### Type II Feedback (Combats False Positives) ###
                 #####################################################
-                if self.clause_output[j] == 1:
-                    for k in range(self.number_of_features):
+                for k in range(self.number_of_features):
+                    if self.clause_output[j] == 1:
                         action_include = self.action(self.ta_state[j,k])
                         action_include_negated = self.action(self.ta_state_neg[j,k])
 
