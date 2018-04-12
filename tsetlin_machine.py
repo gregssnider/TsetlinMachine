@@ -313,12 +313,21 @@ class MultiClassTsetlinMachine:
                 #####################################################
                 ### Type II Feedback (Combats False Positives) ###
                 #####################################################
+
+                # First do this by rows (clauses)
+                action_include = (self.ta_state[j] > self.number_of_states).astype(np.int64)
+                action_include_negated = (self.ta_state_neg[j] > self.number_of_states).astype(np.int64)
+                self.ta_state[j] += clause_matrix[j] * (1 - X) * (1 - action_include)
+                self.ta_state_neg[j] += clause_matrix[j] * X * (1 - action_include_negated)
+
+                '''
                 for k in range(self.number_of_features):
                     action_include = self.action(self.ta_state[j, k])
                     self.ta_state[j, k] += clause_out * (1-X[k]) * (1 - action_include)
 
                     action_include_negated = self.action(self.ta_state_neg[j, k])
                     self.ta_state_neg[j,k] += clause_out * X[k] * (1 - action_include_negated)
+                '''
 
         self.clamp_automata()
 
