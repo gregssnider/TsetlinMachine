@@ -342,18 +342,6 @@ cdef class MultiClassTsetlinMachine:
                             - (1 - X[k]) * self.small_random_threshold[j, k])
                     self.ta_state[j, k] += value
 
-                '''
-                if clause_output == 0:
-                    for k in xrange(self.number_of_features):
-                        self.ta_state[j, k] -= self.small_random_threshold[j, k]
-
-                elif clause_output == 1:
-                    for k in xrange(self.number_of_features):
-                        value = (X[k] * self.big_random_threshold[j, k] -
-                                 (1 - X[k]) * self.small_random_threshold[j, k])
-                        self.ta_state[j, k] += value
-                '''
-
             elif feedback < 0:
                 #####################################################
                 ### Type II Feedback (Combats False Positives) ###
@@ -361,12 +349,6 @@ cdef class MultiClassTsetlinMachine:
                 for k in xrange(self.number_of_features):
                     action_include = self.action(self.ta_state[j,k])
                     self.ta_state[j, k] += (1 - X[k]) * (1 - action_include) * clause_output
-                '''
-                if clause_output == 1:
-                    for k in xrange(self.number_of_features):
-                        action_include = self.action(self.ta_state[j,k])
-                        self.ta_state[j, k] += (1 - X[k]) * (1 - action_include)
-                '''
             else:
                 pass  # print('zero feedback')
 
@@ -384,17 +366,6 @@ cdef class MultiClassTsetlinMachine:
                             + (clause_output) * ((1 - X[k]) * self.big_random_threshold[j, k]
                             - X[k] * self.small_random_threshold[j, k])
                     self.ta_state_neg[j, k] += value
-                '''
-                if clause_output == 0:
-                    for k in xrange(self.number_of_features):
-                        self.ta_state_neg[j, k] -= self.small_random_threshold[j, k]
-
-                elif clause_output == 1:
-                    for k in xrange(self.number_of_features):
-                        value = (1 - X[k]) * self.big_random_threshold[j, k] - \
-                                X[k] * self.small_random_threshold[j, k]
-                        self.ta_state_neg[j, k] += value
-                '''
 
             elif feedback < 0:
                 #####################################################
@@ -404,13 +375,6 @@ cdef class MultiClassTsetlinMachine:
                     action_include_negated = self.action(self.ta_state_neg[j,k])
                     value = clause_output * X[k] * (1 - action_include_negated)
                     self.ta_state_neg[j, k] += value
-                '''
-                if clause_output == 1:
-                    for k in xrange(self.number_of_features):
-                        action_include_negated = self.action(self.ta_state_neg[j,k])
-                        value = X[k] * (1 - action_include_negated)
-                        self.ta_state_neg[j, k] += value
-                '''
             else:
                 pass  # print('zero feedback')
 
