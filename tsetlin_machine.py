@@ -245,7 +245,8 @@ class MultiClassTsetlinMachine:
 
         # Calculate feedback to clauses
         for j in range(self.clause_count[target_class]):
-            if self.rand() > (1.0/(self.threshold*2))*(self.threshold - self.class_sum[target_class]):
+            if self.rand() > (1.0 / (self.threshold * 2)) * \
+                    (self.threshold - self.class_sum[target_class]):
                 continue
 
             global_clause_index = self.global_clause_index[target_class, j]
