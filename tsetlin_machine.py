@@ -333,6 +333,13 @@ class MultiClassTsetlinMachine:
 
     def clamp_automata(self):
         """Clamp all automata states to the range[1, 2*number_of_states]."""
+        '''
+        # np.clip not supported by jit
+        smallest = 1
+        biggest = self.number_of_states * 2
+        np.clip(self.ta_state, smallest, biggest, self.ta_state)
+        np.clip(self.ta_state_neg, smallest, biggest, self.ta_state_neg)
+        '''
         for j in range(self.number_of_clauses):
             for k in range(self.number_of_features):
                 self.ta_state[j, k] = max(min(self.ta_state[j, k], self.number_of_states * 2), 1)
