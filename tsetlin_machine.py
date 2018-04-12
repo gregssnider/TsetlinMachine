@@ -284,42 +284,36 @@ class MultiClassTsetlinMachine:
                         self.ta_state[j,k] -= low_prob[j, k]
                     else:
                         self.ta_state[j,k] += X[k] * high_prob[j, k] - (1-X[k]) * low_prob[j, k]
-                        '''
-                        if X[k] == 1:
-                            self.ta_state[j,k] += high_prob[j, k]
-                        elif X[k] == 0:
-                            self.ta_state[j,k] -= low_prob[j, k]
-                        '''
 
                 for k in range(self.number_of_features):
                     if self.clause_output[j] == 0:
                         self.ta_state_neg[j,k] -= low_prob[j, k]
                     else:
                         self.ta_state_neg[j,k] += -X[k] * low_prob[j, k] + (1-X[k]) * high_prob[j, k]
-                        '''
-                        if X[k] == 1:
-                            self.ta_state_neg[j,k] -= low_prob[j, k]
-                        elif X[k] == 0:
-                            self.ta_state_neg[j,k] += high_prob[j, k]
-                        '''
 
             elif self.feedback_to_clauses[j] < 0:
                 #####################################################
                 ### Type II Feedback (Combats False Positives) ###
                 #####################################################
                 for k in range(self.number_of_features):
+                    action_include = self.action(self.ta_state[j, k])
+                    self.ta_state[j, k] += self.clause_output[j] * (1-X[k]) * (1 - action_include)
+                    '''
                     if self.clause_output[j] == 1:
-                        action_include = self.action(self.ta_state[j, k])
                         if X[k] == 0:
                             if action_include == 0:
                                 self.ta_state[j, k] += 1
+                    '''
 
                 for k in range(self.number_of_features):
+                    action_include_negated = self.action(self.ta_state_neg[j, k])
+                    self.ta_state_neg[j,k] += self.clause_output[j] * X[k] * (1 - action_include_negated)
+                    '''
                     if self.clause_output[j] == 1:
-                        action_include_negated = self.action(self.ta_state_neg[j,k])
                         if X[k] == 1:
                             if action_include_negated == 0:
                                 self.ta_state_neg[j,k] += 1
+                    '''
 
         self.clamp_automata()
 
