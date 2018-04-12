@@ -285,8 +285,23 @@ class MultiClassTsetlinMachine:
         pos_feedback_matrix = (feedback_matrix > 0).astype(np.int64)
         neg_feedback_matrix = (feedback_matrix < 0).astype(np.int64)
 
+        # Vectorization -- this is essentially unreadable
+        low_delta = inv_clause_matrix * (-low_prob)
+        delta =  clause_matrix * (X * high_prob - (1-X) * low_prob)
+        delta_neg = clause_matrix * (-X * low_prob + (1 - X) * high_prob)
+
+        action_include = (self.ta_state > self.number_of_states).astype(np.int64)
+        action_include_negated = (
+                    self.ta_state_neg > self.number_of_states).astype(np.int64)
+
+        self.ta_state += pos_feedback_matrix * (low_delta + delta) + \
+            neg_feedback_matrix * (clause_matrix * (1 - X) * (1 - action_include))
+
+        self.ta_state_neg += pos_feedback_matrix * (low_delta + delta_neg) + \
+            neg_feedback_matrix * clause_matrix * X * (1 - action_include_negated)
+
+        '''
         for j in range(self.number_of_clauses):
-            clause_out = self.clause_output[j]
             if self.feedback_to_clauses[j] > 0:
                 ####################################################
                 ### Type I Feedback (Combats False Negatives) ###
@@ -310,6 +325,7 @@ class MultiClassTsetlinMachine:
                 action_include_negated = (self.ta_state_neg[j] > self.number_of_states).astype(np.int64)
                 self.ta_state[j] += clause_matrix[j] * (1 - X) * (1 - action_include)
                 self.ta_state_neg[j] += clause_matrix[j] * X * (1 - action_include_negated)
+        '''
 
         self.clamp_automata()
 
