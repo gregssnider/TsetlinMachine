@@ -7,9 +7,11 @@ import time
 from numba import jitclass
 from numba import int32, float32, int64, float64
 
+'''
 RAND_MAX = 1024 * 1024
 def rand():
     return randint(0, RAND_MAX - 1)
+'''
 
 
 ########################################
@@ -278,7 +280,11 @@ class MultiClassTsetlinMachine:
         # The reshape trick allows us to multiply the rows of a 2D matrix,
         # with the rows of the 1D clause_output.
         clause_matrix = self.clause_output.reshape(-1, 1)
+        inv_clause_matrix = clause_matrix ^ 1
         feedback_matrix = self.feedback_to_clauses.reshape(-1, 1)
+        pos_feedback_matrix = (feedback_matrix > 0).astype(np.int64)
+        neg_feedback_matrix = (feedback_matrix < 0).astype(np.int64)
+
         for j in range(self.number_of_clauses):
             clause_out = self.clause_output[j]
             if self.feedback_to_clauses[j] > 0:
