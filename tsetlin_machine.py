@@ -283,19 +283,25 @@ class MultiClassTsetlinMachine:
                     if self.clause_output[j] == 0:
                         self.ta_state[j,k] -= low_prob[j, k]
                     else:
+                        self.ta_state[j,k] += X[k] * high_prob[j, k] - (1-X[k]) * low_prob[j, k]
+                        '''
                         if X[k] == 1:
                             self.ta_state[j,k] += high_prob[j, k]
                         elif X[k] == 0:
                             self.ta_state[j,k] -= low_prob[j, k]
+                        '''
 
                 for k in range(self.number_of_features):
                     if self.clause_output[j] == 0:
                         self.ta_state_neg[j,k] -= low_prob[j, k]
                     else:
+                        self.ta_state_neg[j,k] += -X[k] * low_prob[j, k] + (1-X[k]) * high_prob[j, k]
+                        '''
                         if X[k] == 1:
                             self.ta_state_neg[j,k] -= low_prob[j, k]
                         elif X[k] == 0:
                             self.ta_state_neg[j,k] += high_prob[j, k]
+                        '''
 
             elif self.feedback_to_clauses[j] < 0:
                 #####################################################
@@ -370,15 +376,19 @@ if __name__ == '__main__':
     y_test = test_data[:, 12]  # Target value
 
     print("Noisy XOR")
-    start_time = time.time()
-    tsetlin_machine = MultiClassTsetlinMachine(
-        number_of_classes, number_of_clauses, number_of_features, states, s, T)
-    tsetlin_machine.fit(X_training, y_training, y_training.shape[0], epochs)
-    elapsed_time = time.time() - start_time
-
-    print("Accuracy on test data (no noise):",
-          tsetlin_machine.evaluate(X_test, y_test, y_test.shape[0]),
-          'elapsed time:', elapsed_time)
+    sum_accuracy = 0
+    steps = 50
+    for step in range(steps):
+        start_time = time.time()
+        tsetlin_machine = MultiClassTsetlinMachine(
+            number_of_classes, number_of_clauses, number_of_features, states, s, T)
+        tsetlin_machine.fit(X_training, y_training, y_training.shape[0], epochs)
+        elapsed_time = time.time() - start_time
+        accuracy = tsetlin_machine.evaluate(X_test, y_test, y_test.shape[0])
+        print("  Accuracy on test data (no noise):", accuracy,
+              'elapsed time:', elapsed_time)
+        sum_accuracy += accuracy
+    print('Avg accuracy', sum_accuracy / steps)
 
 
 class TsetlinMachine:
