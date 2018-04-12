@@ -283,8 +283,8 @@ class MultiClassTsetlinMachine:
         clause_matrix = self.clause_output.reshape(-1, 1)
         inv_clause_matrix = clause_matrix ^ 1
         feedback_matrix = self.feedback_to_clauses.reshape(-1, 1)
-        pos_feedback_matrix = (feedback_matrix > 0).astype(np.int32)
-        neg_feedback_matrix = (feedback_matrix < 0).astype(np.int32)
+        pos_feedback_matrix = (feedback_matrix > 0)
+        neg_feedback_matrix = (feedback_matrix < 0)
 
         # Vectorization -- this is essentially unreadable. It replaces
         # the commented out code just below it
@@ -292,15 +292,15 @@ class MultiClassTsetlinMachine:
         delta =  clause_matrix * (X * high_prob - (1-X) * low_prob)
         delta_neg = clause_matrix * (-X * low_prob + (1 - X) * high_prob)
 
-        action_include = (self.ta_state > self.number_of_states).astype(np.int32)
-        action_include_negated = (
-                    self.ta_state_neg > self.number_of_states).astype(np.int32)
+        not_action_include = (self.ta_state <= self.number_of_states)
+        not_action_include_negated = (
+                    self.ta_state_neg <= self.number_of_states)
 
         self.ta_state += pos_feedback_matrix * (low_delta + delta) + \
-            neg_feedback_matrix * (clause_matrix * (1 - X) * (1 - action_include))
+            neg_feedback_matrix * (clause_matrix * (1 - X) * (not_action_include))
 
         self.ta_state_neg += pos_feedback_matrix * (low_delta + delta_neg) + \
-            neg_feedback_matrix * clause_matrix * X * (1 - action_include_negated)
+            neg_feedback_matrix * clause_matrix * X * (not_action_include_negated)
 
         '''
         for j in range(self.number_of_clauses):
