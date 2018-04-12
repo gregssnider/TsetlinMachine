@@ -285,7 +285,6 @@ class MultiClassTsetlinMachine:
                         clause_out * (X[k] * high_prob[j, k] - (1-X[k]) * low_prob[j, k])
                     self.ta_state[j, k] += delta
 
-                for k in range(self.number_of_features):
                     delta = (1-clause_out) * (-low_prob[j, k]) + \
                         clause_out * (-X[k] * low_prob[j, k] + (1-X[k]) * high_prob[j, k])
                     self.ta_state_neg[j, k] += delta
@@ -299,7 +298,6 @@ class MultiClassTsetlinMachine:
                     action_include = self.action(self.ta_state[j, k])
                     self.ta_state[j, k] += clause_out * (1-X[k]) * (1 - action_include)
 
-                for k in range(self.number_of_features):
                     action_include_negated = self.action(self.ta_state_neg[j, k])
                     self.ta_state_neg[j,k] += clause_out * X[k] * (1 - action_include_negated)
 
