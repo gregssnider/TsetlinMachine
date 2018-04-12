@@ -250,32 +250,26 @@ class MultiClassTsetlinMachine:
                 if self.clause_output[j] == 0:
                     for k in range(self.number_of_features):
                         if 1.0*self.rand()/RAND_MAX <= 1.0/self.s:
-                            if self.ta_state[j,k] > 1:
-                                self.ta_state[j,k] -= 1
+                            self.ta_state[j,k] -= 1
 
                         if 1.0*self.rand()/RAND_MAX <= 1.0/self.s:
-                            if self.ta_state_neg[j,k] > 1:
-                                self.ta_state_neg[j,k] -= 1
+                            self.ta_state_neg[j,k] -= 1
 
                 elif self.clause_output[j] == 1:
                     for k in range(self.number_of_features):
                         if X[k] == 1:
                             if 1.0*self.rand()/RAND_MAX <= 1.0 * (self.s-1)/self.s:
-                                if self.ta_state[j,k] < self.number_of_states*2:
-                                    self.ta_state[j,k] += 1
+                                self.ta_state[j,k] += 1
 
                             if 1.0*self.rand()/RAND_MAX <= 1.0/self.s:
-                                if self.ta_state_neg[j,k] > 1:
-                                    self.ta_state_neg[j,k] -= 1
+                                self.ta_state_neg[j,k] -= 1
 
                         elif X[k] == 0:
                             if 1.0*self.rand()/RAND_MAX <= 1.0 * (self.s-1)/self.s:
-                                if self.ta_state_neg[j,k] < self.number_of_states*2:
-                                    self.ta_state_neg[j,k] += 1
+                                self.ta_state_neg[j,k] += 1
 
                             if 1.0*self.rand()/RAND_MAX <= 1.0/self.s:
-                                if self.ta_state[j,k] > 1:
-                                    self.ta_state[j,k] -= 1
+                                self.ta_state[j,k] -= 1
 
             elif self.feedback_to_clauses[j] < 0:
                 #####################################################
