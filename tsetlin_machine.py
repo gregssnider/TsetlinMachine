@@ -299,15 +299,6 @@ class MultiClassTsetlinMachine:
                             -X * low_prob[j] + (1 - X) * high_prob[j])
                 self.ta_state[j] += low_delta + delta
                 self.ta_state_neg[j] += low_delta + delta_neg
-                '''
-                for k in range(self.number_of_features):
-                    low_delta = (1 - clause_out) * (-low_prob[j, k])
-                    delta = clause_out * (X[k] * high_prob[j, k] - (1-X[k]) * low_prob[j, k])
-                    delta_neg = clause_out * (-X[k] * low_prob[j, k] + (1-X[k]) * high_prob[j, k])
-                    self.ta_state[j, k] += low_delta + delta
-                    self.ta_state_neg[j, k] += low_delta + delta_neg
-                '''
-
 
             elif self.feedback_to_clauses[j] < 0:
                 #####################################################
@@ -319,15 +310,6 @@ class MultiClassTsetlinMachine:
                 action_include_negated = (self.ta_state_neg[j] > self.number_of_states).astype(np.int64)
                 self.ta_state[j] += clause_matrix[j] * (1 - X) * (1 - action_include)
                 self.ta_state_neg[j] += clause_matrix[j] * X * (1 - action_include_negated)
-
-                '''
-                for k in range(self.number_of_features):
-                    action_include = self.action(self.ta_state[j, k])
-                    self.ta_state[j, k] += clause_out * (1-X[k]) * (1 - action_include)
-
-                    action_include_negated = self.action(self.ta_state_neg[j, k])
-                    self.ta_state_neg[j,k] += clause_out * X[k] * (1 - action_include_negated)
-                '''
 
         self.clamp_automata()
 
