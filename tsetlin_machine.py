@@ -70,9 +70,10 @@ class MultiClassTsetlinMachine:
         # Set up the Tsetlin Machine structure
         for i in range(self.number_of_classes):
             for j in range(self.number_of_clauses / self.number_of_classes):
-                self.clause_sign[i,self.clause_count[i],0] = i*(self.number_of_clauses/self.number_of_classes) + j
+                self.clause_sign[i,self.clause_count[i],0] = \
+                    i*(self.number_of_clauses // self.number_of_classes) + j
                 self.global_clause_index[i, self.clause_count[i]] = \
-                    i * (self.number_of_clauses / self.number_of_classes) + j
+                    i * (self.number_of_clauses // self.number_of_classes) + j
 
                 if j % 2 == 0:
                     self.clause_sign[i, self.clause_count[i], 1] = 1
@@ -100,7 +101,10 @@ class MultiClassTsetlinMachine:
             self.class_sum[target_class] = 0
 
             for j in range(self.clause_count[target_class]):
-                self.class_sum[target_class] += self.clause_output[self.clause_sign[target_class,j,0]]*self.clause_sign[target_class,j,1]
+                global_clause_index = self.global_clause_index[target_class, j]
+                self.class_sum[target_class] += \
+                    self.clause_output[global_clause_index] * \
+                    self.clause_sign[target_class,j,1]
 
             if self.class_sum[target_class] > self.threshold:
                 self.class_sum[target_class] = self.threshold
@@ -223,25 +227,27 @@ class MultiClassTsetlinMachine:
             if 1.0*self.rand()/RAND_MAX > (1.0/(self.threshold*2))*(self.threshold - self.class_sum[target_class]):
                 continue
 
+            global_clause_index = self.global_clause_index[target_class, j]
             if self.clause_sign[target_class,j,1] > 0:
                 # Type I Feedback
-                self.feedback_to_clauses[self.clause_sign[target_class,j,0]] += 1
+                self.feedback_to_clauses[global_clause_index] += 1
 
             elif self.clause_sign[target_class,j,1] < 0:
                 # Type II Feedback
-                self.feedback_to_clauses[self.clause_sign[target_class,j,0]] -= 1
+                self.feedback_to_clauses[global_clause_index] -= 1
 
         for j in range(self.clause_count[negative_target_class]):
             if 1.0*self.rand()/RAND_MAX > (1.0/(self.threshold*2))*(self.threshold + self.class_sum[negative_target_class]):
                 continue
 
+            global_clause_index = self.global_clause_index[negative_target_class, j]
             if self.clause_sign[negative_target_class,j,1] > 0:
                 # Type II Feedback
-                self.feedback_to_clauses[self.clause_sign[negative_target_class,j,0]] -= 1
+                self.feedback_to_clauses[global_clause_index] -= 1
 
             elif self.clause_sign[negative_target_class,j,1] < 0:
                 # Type I Feedback
-                self.feedback_to_clauses[self.clause_sign[negative_target_class,j,0]] += 1
+                self.feedback_to_clauses[global_clause_index] += 1
 
         #################################
         ### Train Individual Automata ###
