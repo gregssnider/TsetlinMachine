@@ -291,11 +291,8 @@ class MultiClassTsetlinMachine:
                             self.ta_state_neg[j,k] -= low_prob[j, k]
 
                         elif X[k] == 0:
-                            if high_prob[j, k]:
-                                self.ta_state_neg[j,k] += 1
-
-                            if low_prob[j, k]:
-                                self.ta_state[j,k] -= 1
+                            self.ta_state_neg[j,k] += high_prob[j, k]
+                            self.ta_state[j,k] -= low_prob[j, k]
 
             elif self.feedback_to_clauses[j] < 0:
                 #####################################################
