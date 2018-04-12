@@ -19,20 +19,20 @@ def rand():
 ########################################
 
 spec = [
-    ('number_of_classes', int64),
-    ('number_of_clauses', int64),
-    ('number_of_features', int64),
+    ('number_of_classes', int32),
+    ('number_of_clauses', int32),
+    ('number_of_features', int32),
     ('s', float64),
-    ('number_of_states', int64),
-    ('ta_state', int64[:,:]),             # indices: [clause, feature]
-    ('ta_state_neg', int64[:,:]),         # indices: [clause, feature]
-    ('clause_count', int64[:]),           # index: [class]
-    ('clause_sign', int64[:,:]),          # indices: [class, clause]
-    ('global_clause_index', int64[:,:]),  # indices: [class, feature]
-    ('clause_output', int64[::1]),
-    ('class_sum', int64[:]),
-    ('feedback_to_clauses', int64[::1]),
-    ('threshold', int64),
+    ('number_of_states', int32),
+    ('ta_state', int32[:,:]),             # indices: [clause, feature]
+    ('ta_state_neg', int32[:,:]),         # indices: [clause, feature]
+    ('clause_count', int32[:]),           # index: [class]
+    ('clause_sign', int32[:,:]),          # indices: [class, clause]
+    ('global_clause_index', int32[:,:]),  # indices: [class, feature]
+    ('clause_output', int32[::1]),
+    ('class_sum', int32[:]),
+    ('feedback_to_clauses', int32[::1]),
+    ('threshold', int32),
 
 ]
 
@@ -55,27 +55,27 @@ class MultiClassTsetlinMachine:
 
         # The state of each Tsetlin Automaton is stored here. The automata are randomly initialized to either 'number_of_states' or 'number_of_states' + 1.
         self.ta_state = np.random.choice(np.array([number_of_states, number_of_states+1]),
-                                         size=(number_of_clauses, number_of_features)).astype(np.int64)
+                                         size=(number_of_clauses, number_of_features)).astype(np.int32)
         self.ta_state_neg = np.random.choice(np.array([number_of_states, number_of_states+1]),
-                                         size=(number_of_clauses, number_of_features)).astype(np.int64)
+                                         size=(number_of_clauses, number_of_features)).astype(np.int32)
 
         # Data structures for keeping track of which clause refers to which class, and the sign of the clause
-        self.clause_count = np.zeros((self.number_of_classes,), dtype=np.int64)
-        self.clause_sign = np.zeros((self.number_of_classes, self.number_of_clauses), dtype=np.int64)
-        self.global_clause_index = np.zeros((self.number_of_classes,
-            self.number_of_clauses), dtype=np.int64)
+        self.clause_count = np.zeros((number_of_classes,), dtype=np.int32)
+        self.clause_sign = np.zeros((number_of_classes, number_of_clauses), dtype=np.int32)
+        self.global_clause_index = np.zeros((number_of_classes,
+            number_of_clauses), dtype=np.int32)
 
         # Data structures for intermediate calculations (clause output, summation of votes, and feedback to clauses)
-        self.clause_output = np.zeros(shape=(self.number_of_clauses,),
-                                      dtype=np.int64)
-        self.class_sum = np.zeros(shape=(self.number_of_classes,), dtype=np.int64)
-        self.feedback_to_clauses = np.zeros(shape=(self.number_of_clauses), dtype=np.int64)
+        self.clause_output = np.zeros(shape=(number_of_clauses,),
+                                      dtype=np.int32)
+        self.class_sum = np.zeros(shape=(number_of_classes,), dtype=np.int32)
+        self.feedback_to_clauses = np.zeros(shape=(number_of_clauses), dtype=np.int32)
 
         # Set up the Tsetlin Machine structure
-        for i in range(self.number_of_classes):
-            for j in range(self.number_of_clauses / self.number_of_classes):
+        for i in range(number_of_classes):
+            for j in range(number_of_clauses // number_of_classes):
                 self.global_clause_index[i, self.clause_count[i]] = \
-                    i * (self.number_of_clauses // self.number_of_classes) + j
+                    i * (number_of_clauses // number_of_classes) + j
 
                 if j % 2 == 0:
                     self.clause_sign[i, self.clause_count[i]] = 1
@@ -156,7 +156,8 @@ class MultiClassTsetlinMachine:
     ############################################
 
     def evaluate(self, X, y, number_of_examples):
-        Xi = np.zeros((self.number_of_features,))
+        number_of_features = self.ta_state.shape[1]
+        Xi = np.zeros((number_of_features,)).astype(np.int32)
 
         errors = 0
         for l in range(number_of_examples):
@@ -205,7 +206,7 @@ class MultiClassTsetlinMachine:
             boolean array of shape [clauses, features]
         """
         return (np.random.random((self.number_of_clauses, self.number_of_features)) \
-               <= 1.0 / self.s).astype(np.int64)
+               <= 1.0 / self.s).astype(np.int32)
 
     def high_probability(self):
         """Compute an array of high probabilities.
@@ -214,7 +215,7 @@ class MultiClassTsetlinMachine:
             boolean array of shape [clauses, features]
         """
         return (np.random.random((self.number_of_clauses, self.number_of_features)) \
-               <= (self.s - 1.0) / self.s).astype(np.int64)
+               <= (self.s - 1.0) / self.s).astype(np.int32)
 
     def update(self, X, target_class):
 
@@ -282,8 +283,8 @@ class MultiClassTsetlinMachine:
         clause_matrix = self.clause_output.reshape(-1, 1)
         inv_clause_matrix = clause_matrix ^ 1
         feedback_matrix = self.feedback_to_clauses.reshape(-1, 1)
-        pos_feedback_matrix = (feedback_matrix > 0).astype(np.int64)
-        neg_feedback_matrix = (feedback_matrix < 0).astype(np.int64)
+        pos_feedback_matrix = (feedback_matrix > 0).astype(np.int32)
+        neg_feedback_matrix = (feedback_matrix < 0).astype(np.int32)
 
         # Vectorization -- this is essentially unreadable. It replaces
         # the commented out code just below it
@@ -291,9 +292,9 @@ class MultiClassTsetlinMachine:
         delta =  clause_matrix * (X * high_prob - (1-X) * low_prob)
         delta_neg = clause_matrix * (-X * low_prob + (1 - X) * high_prob)
 
-        action_include = (self.ta_state > self.number_of_states).astype(np.int64)
+        action_include = (self.ta_state > self.number_of_states).astype(np.int32)
         action_include_negated = (
-                    self.ta_state_neg > self.number_of_states).astype(np.int64)
+                    self.ta_state_neg > self.number_of_states).astype(np.int32)
 
         self.ta_state += pos_feedback_matrix * (low_delta + delta) + \
             neg_feedback_matrix * (clause_matrix * (1 - X) * (1 - action_include))
@@ -322,8 +323,8 @@ class MultiClassTsetlinMachine:
                 #####################################################
 
                 # First do this by rows (clauses)
-                action_include = (self.ta_state[j] > self.number_of_states).astype(np.int64)
-                action_include_negated = (self.ta_state_neg[j] > self.number_of_states).astype(np.int64)
+                action_include = (self.ta_state[j] > self.number_of_states).astype(np.int32)
+                action_include_negated = (self.ta_state_neg[j] > self.number_of_states).astype(np.int32)
                 self.ta_state[j] += clause_matrix[j] * (1 - X) * (1 - action_include)
                 self.ta_state_neg[j] += clause_matrix[j] * X * (1 - action_include_negated)
         '''
@@ -342,7 +343,8 @@ class MultiClassTsetlinMachine:
     ##############################################
 
     def fit(self, X, y, number_of_examples, epochs=100):
-        Xi = np.zeros((self.number_of_features,), dtype=np.int64)
+        number_of_features = self.ta_state.shape[1]
+        Xi = np.zeros((number_of_features, )).astype(np.int32)
 
         random_index = np.arange(number_of_examples)
 
@@ -374,8 +376,8 @@ if __name__ == '__main__':
     epochs = 200
 
     # Loading of training and test data
-    training_data = np.loadtxt("NoisyXORTrainingData.txt").astype(dtype=np.int64)
-    test_data = np.loadtxt("NoisyXORTestData.txt").astype(dtype=np.int64)
+    training_data = np.loadtxt("NoisyXORTrainingData.txt").astype(dtype=np.int32)
+    test_data = np.loadtxt("NoisyXORTestData.txt").astype(dtype=np.int32)
 
     X_training = training_data[:, 0:12]  # Input features
     y_training = training_data[:, 12]  # Target value
