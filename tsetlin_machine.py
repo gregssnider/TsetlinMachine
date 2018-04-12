@@ -241,8 +241,7 @@ class MultiClassTsetlinMachine:
         #####################################
 
         # Initialize feedback to clauses
-        for j in range(self.number_of_clauses):
-            self.feedback_to_clauses[j] = 0
+        self.feedback_to_clauses = np.zeros_like(self.feedback_to_clauses)
 
         # Calculate feedback to clauses
         for j in range(self.clause_count[target_class]):
