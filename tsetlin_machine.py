@@ -285,7 +285,8 @@ class MultiClassTsetlinMachine:
         pos_feedback_matrix = (feedback_matrix > 0).astype(np.int64)
         neg_feedback_matrix = (feedback_matrix < 0).astype(np.int64)
 
-        # Vectorization -- this is essentially unreadable
+        # Vectorization -- this is essentially unreadable. It replaces
+        # the commented out code just below it
         low_delta = inv_clause_matrix * (-low_prob)
         delta =  clause_matrix * (X * high_prob - (1-X) * low_prob)
         delta_neg = clause_matrix * (-X * low_prob + (1 - X) * high_prob)
