@@ -22,7 +22,8 @@ spec = [
     ('number_of_features', int64),
     ('s', float64),
     ('number_of_states', int64),
-    ('ta_state', int64[:,:,:]),
+    ('ta_state', int64[:,:]),         # indices: [clause, feature]
+    ('ta_state_neg', int64[:,:]),     # indices: [clause, feature]
     ('clause_count', int64[:]),
     ('clause_sign', int64[:,:,:]),
     ('clause_output', int64[:]),
@@ -50,7 +51,9 @@ class MultiClassTsetlinMachine:
 
         # The state of each Tsetlin Automaton is stored here. The automata are randomly initialized to either 'number_of_states' or 'number_of_states' + 1.
         self.ta_state = np.random.choice(np.array([number_of_states, number_of_states+1]),
-                                         size=(number_of_clauses, number_of_features, 2)).astype(np.int64)
+                                         size=(number_of_clauses, number_of_features)).astype(np.int64)
+        self.ta_state_neg = np.random.choice(np.array([number_of_states, number_of_states+1]),
+                                         size=(number_of_clauses, number_of_features)).astype(np.int64)
 
         # Data structures for keeping track of which clause refers to which class, and the sign of the clause
         self.clause_count = np.zeros((self.number_of_classes,), dtype=np.int64)
@@ -78,8 +81,8 @@ class MultiClassTsetlinMachine:
         for j in range(self.number_of_clauses):
             self.clause_output[j] = 1
             for k in range(self.number_of_features):
-                action_include = self.action(self.ta_state[j,k,0])
-                action_include_negated = self.action(self.ta_state[j,k,1])
+                action_include = self.action(self.ta_state[j,k])
+                action_include_negated = self.action(self.ta_state_neg[j,k])
 
                 if (action_include == 1 and X[k] == 0) or (action_include_negated == 1 and X[k] == 1):
                     self.clause_output[j] = 0
@@ -135,9 +138,6 @@ class MultiClassTsetlinMachine:
         else:
             return 1
 
-    # Get the state of a specific automaton, indexed by clause, feature, and automaton type (include/include negated).
-    def get_state(self, clause, feature, automaton_type):
-        return self.ta_state[clause,feature,automaton_type]
 
     ############################################
     ### Evaluate the Trained Tsetlin Machine ###
@@ -250,32 +250,32 @@ class MultiClassTsetlinMachine:
                 if self.clause_output[j] == 0:
                     for k in range(self.number_of_features):
                         if 1.0*self.rand()/RAND_MAX <= 1.0/self.s:
-                            if self.ta_state[j,k,0] > 1:
-                                self.ta_state[j,k,0] -= 1
+                            if self.ta_state[j,k] > 1:
+                                self.ta_state[j,k] -= 1
 
                         if 1.0*self.rand()/RAND_MAX <= 1.0/self.s:
-                            if self.ta_state[j,k,1] > 1:
-                                self.ta_state[j,k,1] -= 1
+                            if self.ta_state_neg[j,k] > 1:
+                                self.ta_state_neg[j,k] -= 1
 
                 elif self.clause_output[j] == 1:
                     for k in range(self.number_of_features):
                         if X[k] == 1:
                             if 1.0*self.rand()/RAND_MAX <= 1.0 * (self.s-1)/self.s:
-                                if self.ta_state[j,k,0] < self.number_of_states*2:
-                                    self.ta_state[j,k,0] += 1
+                                if self.ta_state[j,k] < self.number_of_states*2:
+                                    self.ta_state[j,k] += 1
 
                             if 1.0*self.rand()/RAND_MAX <= 1.0/self.s:
-                                if self.ta_state[j,k,1] > 1:
-                                    self.ta_state[j,k,1] -= 1
+                                if self.ta_state_neg[j,k] > 1:
+                                    self.ta_state_neg[j,k] -= 1
 
                         elif X[k] == 0:
                             if 1.0*self.rand()/RAND_MAX <= 1.0 * (self.s-1)/self.s:
-                                if self.ta_state[j,k,1] < self.number_of_states*2:
-                                    self.ta_state[j,k,1] += 1
+                                if self.ta_state_neg[j,k] < self.number_of_states*2:
+                                    self.ta_state_neg[j,k] += 1
 
                             if 1.0*self.rand()/RAND_MAX <= 1.0/self.s:
-                                if self.ta_state[j,k,0] > 1:
-                                    self.ta_state[j,k,0] -= 1
+                                if self.ta_state[j,k] > 1:
+                                    self.ta_state[j,k] -= 1
 
             elif self.feedback_to_clauses[j] < 0:
                 #####################################################
@@ -283,17 +283,17 @@ class MultiClassTsetlinMachine:
                 #####################################################
                 if self.clause_output[j] == 1:
                     for k in range(self.number_of_features):
-                        action_include = self.action(self.ta_state[j,k,0])
-                        action_include_negated = self.action(self.ta_state[j,k,1])
+                        action_include = self.action(self.ta_state[j,k])
+                        action_include_negated = self.action(self.ta_state_neg[j,k])
 
                         if X[k] == 0:
-                            if action_include == 0 and self.ta_state[j,k,0] < self.number_of_states*2:
+                            if action_include == 0 and self.ta_state[j,k] < self.number_of_states*2:
                                 if 1.0*self.rand()/RAND_MAX <= 1.0:
-                                    self.ta_state[j,k,0] += 1
+                                    self.ta_state[j,k] += 1
                         elif X[k] == 1:
-                            if action_include_negated == 0 and self.ta_state[j,k,1] < self.number_of_states*2:
+                            if action_include_negated == 0 and self.ta_state_neg[j,k] < self.number_of_states*2:
                                 if 1.0*self.rand()/RAND_MAX <= 1.0:
-                                    self.ta_state[j,k,1] += 1
+                                    self.ta_state_neg[j,k] += 1
 
     ##############################################
     ### Batch Mode Training of Tsetlin Machine ###
