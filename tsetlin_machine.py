@@ -22,10 +22,10 @@ spec = [
     ('number_of_features', int64),
     ('s', float64),
     ('number_of_states', int64),
-    ('ta_state', int64[:,:]),         # indices: [clause, feature]
-    ('ta_state_neg', int64[:,:]),     # indices: [clause, feature]
-    ('clause_count', int64[:]),
-    ('clause_sign', int64[:,:,:]),
+    ('ta_state', int64[:,:]),             # indices: [clause, feature]
+    ('ta_state_neg', int64[:,:]),         # indices: [clause, feature]
+    ('clause_count', int64[:]),           # index: [class]
+    ('clause_sign', int64[:,:]),          # indices: [class, clause]
     ('global_clause_index', int64[:,:]),  # indices: [class, feature]
     ('clause_output', int64[:]),
     ('class_sum', int64[:]),
@@ -58,7 +58,7 @@ class MultiClassTsetlinMachine:
 
         # Data structures for keeping track of which clause refers to which class, and the sign of the clause
         self.clause_count = np.zeros((self.number_of_classes,), dtype=np.int64)
-        self.clause_sign = np.zeros((self.number_of_classes, self.number_of_clauses, 2), dtype=np.int64)
+        self.clause_sign = np.zeros((self.number_of_classes, self.number_of_clauses), dtype=np.int64)
         self.global_clause_index = np.zeros((self.number_of_classes,
             self.number_of_clauses), dtype=np.int64)
 
@@ -70,15 +70,13 @@ class MultiClassTsetlinMachine:
         # Set up the Tsetlin Machine structure
         for i in range(self.number_of_classes):
             for j in range(self.number_of_clauses / self.number_of_classes):
-                self.clause_sign[i,self.clause_count[i],0] = \
-                    i*(self.number_of_clauses // self.number_of_classes) + j
                 self.global_clause_index[i, self.clause_count[i]] = \
                     i * (self.number_of_clauses // self.number_of_classes) + j
 
                 if j % 2 == 0:
-                    self.clause_sign[i, self.clause_count[i], 1] = 1
+                    self.clause_sign[i, self.clause_count[i]] = 1
                 else:
-                    self.clause_sign[i, self.clause_count[i], 1] = -1
+                    self.clause_sign[i, self.clause_count[i]] = -1
 
                 self.clause_count[i] += 1
 
@@ -104,7 +102,7 @@ class MultiClassTsetlinMachine:
                 global_clause_index = self.global_clause_index[target_class, j]
                 self.class_sum[target_class] += \
                     self.clause_output[global_clause_index] * \
-                    self.clause_sign[target_class,j,1]
+                    self.clause_sign[target_class,j]
 
             if self.class_sum[target_class] > self.threshold:
                 self.class_sum[target_class] = self.threshold
@@ -228,11 +226,11 @@ class MultiClassTsetlinMachine:
                 continue
 
             global_clause_index = self.global_clause_index[target_class, j]
-            if self.clause_sign[target_class,j,1] > 0:
+            if self.clause_sign[target_class,j] > 0:
                 # Type I Feedback
                 self.feedback_to_clauses[global_clause_index] += 1
 
-            elif self.clause_sign[target_class,j,1] < 0:
+            elif self.clause_sign[target_class,j] < 0:
                 # Type II Feedback
                 self.feedback_to_clauses[global_clause_index] -= 1
 
@@ -241,11 +239,11 @@ class MultiClassTsetlinMachine:
                 continue
 
             global_clause_index = self.global_clause_index[negative_target_class, j]
-            if self.clause_sign[negative_target_class,j,1] > 0:
+            if self.clause_sign[negative_target_class,j] > 0:
                 # Type II Feedback
                 self.feedback_to_clauses[global_clause_index] -= 1
 
-            elif self.clause_sign[negative_target_class,j,1] < 0:
+            elif self.clause_sign[negative_target_class,j] < 0:
                 # Type I Feedback
                 self.feedback_to_clauses[global_clause_index] += 1
 
