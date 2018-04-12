@@ -292,11 +292,11 @@ class MultiClassTsetlinMachine:
                         action_include_negated = self.action(self.ta_state_neg[j,k])
 
                         if X[k] == 0:
-                            if action_include == 0 and self.ta_state[j,k] < self.number_of_states*2:
+                            if action_include == 0:
                                 if self.rand() <= 1.0:
                                     self.ta_state[j,k] += 1
                         elif X[k] == 1:
-                            if action_include_negated == 0 and self.ta_state_neg[j,k] < self.number_of_states*2:
+                            if action_include_negated == 0:
                                 if self.rand() <= 1.0:
                                     self.ta_state_neg[j,k] += 1
         self.clamp_automata()
