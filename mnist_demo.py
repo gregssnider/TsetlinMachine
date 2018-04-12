@@ -1,9 +1,11 @@
 import pyximport; pyximport.install()
 import numpy as np
 from torchvision import datasets
+import time
 
 import OriginalMultiClassTsetlinMachine
-import MultiClassTsetlinMachine
+from tsetlin_machine import MultiClassTsetlinMachine
+
 
 def mnist_dataset(training=True) -> (np.ndarray, np.ndarray):
     dataset = datasets.MNIST('./data', train=training, download=True)
@@ -48,25 +50,38 @@ if __name__ == '__main__':
 
     # This is a multiclass variant of the Tsetlin Machine, capable of distinguishing between multiple classes
     #
-    print('original on MNIST: ', end='', flush=True)
-    tsetlin_machine = OriginalMultiClassTsetlinMachine.OriginalMultiClassTsetlinMachine(number_of_classes, number_of_clauses, number_of_features, states, s, T)
-    tsetlin_machine.fit(X_training, y_training, y_training.shape[0], epochs=epochs)
-    print("Accuracy:", tsetlin_machine.evaluate(X_test, y_test, y_test.shape[0]))
-
     print('     new on MNIST: ', end='', flush=True)
-    tsetlin_machine = MultiClassTsetlinMachine.MultiClassTsetlinMachine(number_of_classes, number_of_clauses, number_of_features, states, s, T)
-    tsetlin_machine.fit(X_training, y_training, y_training.shape[0], epochs=epochs)
-    print("Accuracy:", tsetlin_machine.evaluate(X_test, y_test, y_test.shape[0]))
+    start_time = time.time()
+    tsetlin_machine = MultiClassTsetlinMachine(number_of_classes, number_of_clauses, number_of_features, states, s, T)
+    tsetlin_machine.fit(X_training, y_training, y_training.shape[0], epochs)
+    elapsed_time = time.time() - start_time
+    print("Accuracy:", tsetlin_machine.evaluate(X_test, y_test, y_test.shape[0]),
+          'time', elapsed_time)
 
     print('original on MNIST: ', end='', flush=True)
+    start_time = time.time()
     tsetlin_machine = OriginalMultiClassTsetlinMachine.OriginalMultiClassTsetlinMachine(number_of_classes, number_of_clauses, number_of_features, states, s, T)
     tsetlin_machine.fit(X_training, y_training, y_training.shape[0], epochs=epochs)
-    print("Accuracy:", tsetlin_machine.evaluate(X_test, y_test, y_test.shape[0]))
+    elapsed_time = time.time() - start_time
+    print("Accuracy:", tsetlin_machine.evaluate(X_test, y_test, y_test.shape[0]),
+          'time', elapsed_time)
 
     print('     new on MNIST: ', end='', flush=True)
-    tsetlin_machine = MultiClassTsetlinMachine.MultiClassTsetlinMachine(number_of_classes, number_of_clauses, number_of_features, states, s, T)
+    start_time = time.time()
+    tsetlin_machine = MultiClassTsetlinMachine(number_of_classes, number_of_clauses, number_of_features, states, s, T)
+    tsetlin_machine.fit(X_training, y_training, y_training.shape[0], epochs)
+    elapsed_time = time.time() - start_time
+    print("Accuracy:", tsetlin_machine.evaluate(X_test, y_test, y_test.shape[0]),
+          'time', elapsed_time)
+
+    print('original on MNIST: ', end='', flush=True)
+    start_time = time.time()
+    tsetlin_machine = OriginalMultiClassTsetlinMachine.OriginalMultiClassTsetlinMachine(number_of_classes, number_of_clauses, number_of_features, states, s, T)
     tsetlin_machine.fit(X_training, y_training, y_training.shape[0], epochs=epochs)
-    print("Accuracy:", tsetlin_machine.evaluate(X_test, y_test, y_test.shape[0]))
+    elapsed_time = time.time() - start_time
+    print("Accuracy:", tsetlin_machine.evaluate(X_test, y_test, y_test.shape[0]),
+          'time', elapsed_time)
+
     #print("Accuracy on training data:", tsetlin_machine.evaluate(X_training, y_training, y_training.shape[0]))
 
 
