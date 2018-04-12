@@ -201,8 +201,8 @@ class MultiClassTsetlinMachine:
         Returns:
             boolean array of shape [clauses, features]
         """
-        return np.random.random((self.number_of_clauses, self.number_of_features)) \
-               <= 1.0 / self.s
+        return (np.random.random((self.number_of_clauses, self.number_of_features)) \
+               <= 1.0 / self.s).astype(np.int64)
 
     def high_probability(self):
         """Compute an array of high probabilities.
@@ -210,8 +210,8 @@ class MultiClassTsetlinMachine:
         Returns:
             boolean array of shape [clauses, features]
         """
-        return np.random.random((self.number_of_clauses, self.number_of_features)) \
-               <= (self.s - 1.0) / self.s
+        return (np.random.random((self.number_of_clauses, self.number_of_features)) \
+               <= (self.s - 1.0) / self.s).astype(np.int64)
 
     def update(self, X, target_class):
 
@@ -274,22 +274,36 @@ class MultiClassTsetlinMachine:
         low_prob = self.low_probability()
         high_prob = self.high_probability()
         for j in range(self.number_of_clauses):
+            clause_out = self.clause_output[j]
             if self.feedback_to_clauses[j] > 0:
                 ####################################################
                 ### Type I Feedback (Combats False Negatives) ###
                 ####################################################
 
                 for k in range(self.number_of_features):
-                    if self.clause_output[j] == 0:
-                        self.ta_state[j,k] -= low_prob[j, k]
+                    delta = (1-clause_out) * (-low_prob[j, k]) + \
+                        clause_out * (X[k] * high_prob[j, k] - (1-X[k]) * low_prob[j, k])
+                    self.ta_state[j, k] += delta
+                    '''
+                    if clause_out == 0:
+                        delta = -low_prob[j, k]
+                        self.ta_state[j,k] += delta
                     else:
-                        self.ta_state[j,k] += X[k] * high_prob[j, k] - (1-X[k]) * low_prob[j, k]
+                        delta =  X[k] * high_prob[j, k] - (1-X[k]) * low_prob[j, k]
+                        self.ta_state[j,k] += delta
+                    '''
 
                 for k in range(self.number_of_features):
-                    if self.clause_output[j] == 0:
+                    delta = (1-clause_out) * (-low_prob[j, k]) + \
+                        clause_out * (-X[k] * low_prob[j, k] + (1-X[k]) * high_prob[j, k])
+                    self.ta_state_neg[j, k] += delta
+                    '''
+                    if clause_out == 0:
                         self.ta_state_neg[j,k] -= low_prob[j, k]
                     else:
                         self.ta_state_neg[j,k] += -X[k] * low_prob[j, k] + (1-X[k]) * high_prob[j, k]
+                    '''
+
 
             elif self.feedback_to_clauses[j] < 0:
                 #####################################################
@@ -297,7 +311,7 @@ class MultiClassTsetlinMachine:
                 #####################################################
                 for k in range(self.number_of_features):
                     action_include = self.action(self.ta_state[j, k])
-                    self.ta_state[j, k] += self.clause_output[j] * (1-X[k]) * (1 - action_include)
+                    self.ta_state[j, k] += clause_out * (1-X[k]) * (1 - action_include)
                     '''
                     if self.clause_output[j] == 1:
                         if X[k] == 0:
@@ -307,7 +321,7 @@ class MultiClassTsetlinMachine:
 
                 for k in range(self.number_of_features):
                     action_include_negated = self.action(self.ta_state_neg[j, k])
-                    self.ta_state_neg[j,k] += self.clause_output[j] * X[k] * (1 - action_include_negated)
+                    self.ta_state_neg[j,k] += clause_out * X[k] * (1 - action_include_negated)
                     '''
                     if self.clause_output[j] == 1:
                         if X[k] == 1:
