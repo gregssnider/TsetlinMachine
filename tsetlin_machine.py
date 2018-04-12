@@ -281,20 +281,14 @@ class MultiClassTsetlinMachine:
 
                 if self.clause_output[j] == 0:
                     for k in range(self.number_of_features):
-                        if low_prob[j, k]:
-                            self.ta_state[j,k] -= 1
-
-                        if low_prob[j, k]:
-                            self.ta_state_neg[j,k] -= 1
+                        self.ta_state[j,k] -= low_prob[j, k]
+                        self.ta_state_neg[j,k] -= low_prob[j, k]
 
                 elif self.clause_output[j] == 1:
                     for k in range(self.number_of_features):
                         if X[k] == 1:
-                            if high_prob[j, k]:
-                                self.ta_state[j,k] += 1
-
-                            if low_prob[j, k]:
-                                self.ta_state_neg[j,k] -= 1
+                            self.ta_state[j,k] += high_prob[j, k]
+                            self.ta_state_neg[j,k] -= low_prob[j, k]
 
                         elif X[k] == 0:
                             if high_prob[j, k]:
