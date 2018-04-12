@@ -27,9 +27,9 @@ spec = [
     ('clause_count', int64[:]),           # index: [class]
     ('clause_sign', int64[:,:]),          # indices: [class, clause]
     ('global_clause_index', int64[:,:]),  # indices: [class, feature]
-    ('clause_output', int64[:]),
+    ('clause_output', int64[::1]),
     ('class_sum', int64[:]),
-    ('feedback_to_clauses', int64[:]),
+    ('feedback_to_clauses', int64[::1]),
     ('threshold', int64),
 
 ]
@@ -64,7 +64,8 @@ class MultiClassTsetlinMachine:
             self.number_of_clauses), dtype=np.int64)
 
         # Data structures for intermediate calculations (clause output, summation of votes, and feedback to clauses)
-        self.clause_output = np.zeros(shape=(self.number_of_clauses,), dtype=np.int64)
+        self.clause_output = np.zeros(shape=(self.number_of_clauses,),
+                                      dtype=np.int64)
         self.class_sum = np.zeros(shape=(self.number_of_classes,), dtype=np.int64)
         self.feedback_to_clauses = np.zeros(shape=(self.number_of_clauses), dtype=np.int64)
 
@@ -273,6 +274,11 @@ class MultiClassTsetlinMachine:
 
         low_prob = self.low_probability()
         high_prob = self.high_probability()
+
+        # The reshape trick allows us to multiply the rows of a 2D matrix,
+        # with the rows of the 1D clause_output.
+        clause_matrix = self.clause_output.reshape(-1, 1)
+        feedback_matrix = self.feedback_to_clauses.reshape(-1, 1)
         for j in range(self.number_of_clauses):
             clause_out = self.clause_output[j]
             if self.feedback_to_clauses[j] > 0:
@@ -281,13 +287,11 @@ class MultiClassTsetlinMachine:
                 ####################################################
 
                 for k in range(self.number_of_features):
-                    delta = (1-clause_out) * (-low_prob[j, k]) + \
-                        clause_out * (X[k] * high_prob[j, k] - (1-X[k]) * low_prob[j, k])
-                    self.ta_state[j, k] += delta
-
-                    delta = (1-clause_out) * (-low_prob[j, k]) + \
-                        clause_out * (-X[k] * low_prob[j, k] + (1-X[k]) * high_prob[j, k])
-                    self.ta_state_neg[j, k] += delta
+                    low_delta = (1 - clause_out) * (-low_prob[j, k])
+                    delta = clause_out * (X[k] * high_prob[j, k] - (1-X[k]) * low_prob[j, k])
+                    delta_neg = clause_out * (-X[k] * low_prob[j, k] + (1-X[k]) * high_prob[j, k])
+                    self.ta_state[j, k] += low_delta + delta
+                    self.ta_state_neg[j, k] += low_delta + delta_neg
 
 
             elif self.feedback_to_clauses[j] < 0:
