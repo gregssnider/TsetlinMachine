@@ -194,6 +194,25 @@ class MultiClassTsetlinMachine:
     # The Tsetlin Machine can be trained incrementally, one training example at a time.
     # Use this method directly for online and incremental training.
 
+
+    def low_probability(self):
+        """Compute an array of low probabilities.
+
+        Returns:
+            boolean array of shape [clauses, features]
+        """
+        return np.random.random((self.number_of_clauses, self.number_of_features)) \
+               <= 1.0 / self.s
+
+    def high_probability(self):
+        """Compute an array of high probabilities.
+
+        Returns:
+            boolean array of shape [clauses, features]
+        """
+        return np.random.random((self.number_of_clauses, self.number_of_features)) \
+               <= (self.s - 1.0) / self.s
+
     def update(self, X, target_class):
 
         # Randomly pick one of the other classes, for pairwise learning of class output
@@ -252,6 +271,8 @@ class MultiClassTsetlinMachine:
         ### Train Individual Automata ###
         #################################
 
+        low_prob = self.low_probability()
+        high_prob = self.high_probability()
         for j in range(self.number_of_clauses):
             if self.feedback_to_clauses[j] > 0:
                 ####################################################
