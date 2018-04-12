@@ -197,9 +197,9 @@ class MultiClassTsetlinMachine:
     def update(self, X, target_class):
 
         # Randomly pick one of the other classes, for pairwise learning of class output
-        negative_target_class = int(self.number_of_classes * self.rand())
+        negative_target_class = target_class
         while negative_target_class == target_class:
-            negative_target_class = int(self.number_of_classes * self.rand())
+            negative_target_class = random.randint(0, self.number_of_classes - 1)
 
         ###############################
         ### Calculate Clause Output ###
