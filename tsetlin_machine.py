@@ -2,7 +2,7 @@ import numpy as np
 import random
 import torch
 from torch import IntTensor, ByteTensor
-from random import randint
+import random
 import time
 from numba import jitclass
 from numba import int32, float32, int64, float64
@@ -38,7 +38,8 @@ spec = [
 class MultiClassTsetlinMachine:
 
     def rand(self):
-        return randint(0, RAND_MAX - 1)
+        return random.random()
+        #return random.randint(0, RAND_MAX - 1)
 
         # Initialization of the Tsetlin Machine
     def __init__(self, number_of_classes, number_of_clauses, number_of_features, number_of_states, s, threshold):
@@ -196,9 +197,9 @@ class MultiClassTsetlinMachine:
     def update(self, X, target_class):
 
         # Randomly pick one of the other classes, for pairwise learning of class output
-        negative_target_class = int(self.number_of_classes * 1.0*self.rand()/RAND_MAX)
+        negative_target_class = int(self.number_of_classes * self.rand())
         while negative_target_class == target_class:
-            negative_target_class = int(self.number_of_classes * 1.0*self.rand()/RAND_MAX)
+            negative_target_class = int(self.number_of_classes * self.rand())
 
         ###############################
         ### Calculate Clause Output ###
@@ -222,7 +223,7 @@ class MultiClassTsetlinMachine:
 
         # Calculate feedback to clauses
         for j in range(self.clause_count[target_class]):
-            if 1.0*self.rand()/RAND_MAX > (1.0/(self.threshold*2))*(self.threshold - self.class_sum[target_class]):
+            if self.rand() > (1.0/(self.threshold*2))*(self.threshold - self.class_sum[target_class]):
                 continue
 
             global_clause_index = self.global_clause_index[target_class, j]
@@ -235,7 +236,7 @@ class MultiClassTsetlinMachine:
                 self.feedback_to_clauses[global_clause_index] -= 1
 
         for j in range(self.clause_count[negative_target_class]):
-            if 1.0*self.rand()/RAND_MAX > (1.0/(self.threshold*2))*(self.threshold + self.class_sum[negative_target_class]):
+            if self.rand() > (1.0/(self.threshold*2))*(self.threshold + self.class_sum[negative_target_class]):
                 continue
 
             global_clause_index = self.global_clause_index[negative_target_class, j]
@@ -259,26 +260,26 @@ class MultiClassTsetlinMachine:
 
                 if self.clause_output[j] == 0:
                     for k in range(self.number_of_features):
-                        if 1.0*self.rand()/RAND_MAX <= 1.0/self.s:
+                        if self.rand() <= 1.0/self.s:
                             self.ta_state[j,k] -= 1
 
-                        if 1.0*self.rand()/RAND_MAX <= 1.0/self.s:
+                        if self.rand() <= 1.0/self.s:
                             self.ta_state_neg[j,k] -= 1
 
                 elif self.clause_output[j] == 1:
                     for k in range(self.number_of_features):
                         if X[k] == 1:
-                            if 1.0*self.rand()/RAND_MAX <= 1.0 * (self.s-1)/self.s:
+                            if self.rand() <= 1.0 * (self.s-1)/self.s:
                                 self.ta_state[j,k] += 1
 
-                            if 1.0*self.rand()/RAND_MAX <= 1.0/self.s:
+                            if self.rand() <= 1.0/self.s:
                                 self.ta_state_neg[j,k] -= 1
 
                         elif X[k] == 0:
-                            if 1.0*self.rand()/RAND_MAX <= 1.0 * (self.s-1)/self.s:
+                            if self.rand() <= 1.0 * (self.s-1)/self.s:
                                 self.ta_state_neg[j,k] += 1
 
-                            if 1.0*self.rand()/RAND_MAX <= 1.0/self.s:
+                            if self.rand() <= 1.0/self.s:
                                 self.ta_state[j,k] -= 1
 
             elif self.feedback_to_clauses[j] < 0:
@@ -292,11 +293,11 @@ class MultiClassTsetlinMachine:
 
                         if X[k] == 0:
                             if action_include == 0 and self.ta_state[j,k] < self.number_of_states*2:
-                                if 1.0*self.rand()/RAND_MAX <= 1.0:
+                                if self.rand() <= 1.0:
                                     self.ta_state[j,k] += 1
                         elif X[k] == 1:
                             if action_include_negated == 0 and self.ta_state_neg[j,k] < self.number_of_states*2:
-                                if 1.0*self.rand()/RAND_MAX <= 1.0:
+                                if self.rand() <= 1.0:
                                     self.ta_state_neg[j,k] += 1
         self.clamp_automata()
 
