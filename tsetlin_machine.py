@@ -4,7 +4,8 @@ import torch
 from torch import IntTensor, ByteTensor
 from random import randint
 import time
-
+from numba import jitclass
+from numba import int32, float32
 
 RAND_MAX = 1024 * 1024
 def rand():
