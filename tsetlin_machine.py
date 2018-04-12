@@ -294,6 +294,14 @@ class MultiClassTsetlinMachine:
                             if action_include_negated == 0 and self.ta_state_neg[j,k] < self.number_of_states*2:
                                 if 1.0*self.rand()/RAND_MAX <= 1.0:
                                     self.ta_state_neg[j,k] += 1
+        self.clamp_automata()
+
+    def clamp_automata(self):
+        """Clamp all automata states to the range[1, 2*number_of_states]."""
+        for j in range(self.number_of_clauses):
+            for k in range(self.number_of_features):
+                self.ta_state[j, k] = max(min(self.ta_state[j, k], self.number_of_states * 2), 1)
+                self.ta_state_neg[j, k] = max(min(self.ta_state_neg[j, k], self.number_of_states * 2), 1)
 
     ##############################################
     ### Batch Mode Training of Tsetlin Machine ###
