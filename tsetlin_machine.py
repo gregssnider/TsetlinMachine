@@ -444,28 +444,65 @@ class TsetlinMachine:
     indexed by [clause, input].
 
     Clauses are divided into two "polarities," positive clauses and negative
-    clauses. The first half of the automate matrix represents positive clauses,
-    the second half negative clauses. Each of those halves is also divided in
-    half to separate automata controlling non-inverting inputs from those
-    controlling inverting inputs. The division looks like this:
+    clauses. The first half of an array of clauses are "positive", the second
+    half "negative". Those subarrays are further subdivided into clauses for
+    each of the classes:
+
+        clauses:
+            +-------------------------------------------+
+            |  pos polarity       class 0               |
+            |..                                       ..|
+            |                     class 1               |
+            |..                                       ..|
+            |                     class 2               |
+            |..                                       ..|
+            |                     class 3               |
+            +-------------------------------------------+
+            |  neg polarity       class 0               |
+            |..                                       ..|
+            |                     class 1               |
+            |..                                       ..|
+            |                     class 2               |
+            |..                                       ..|
+            |                     class 3               |
+            +-------------------------------------------+
+
+    The automata matrix has the same structure as an array of clauses, with
+    the first half representing positive polarity, the second half representing
+    negative polarity. These are subdivided into clauses per class as above.
+    The number of columns is equal to the number of input features, so the
+    total number of automata is number_of_clauses * number_of_features
 
         automata:
-            +-------------------------------------------+
-            |  positive polarity, non-inverting inputs  |
-            +-------------------------------------------+
-            |  negative polarity, non-inverting inputs  |
-            +-------------------------------------------+
+            +----------------------------------------------+
+            |  pos polarity clauses, non-inverting inputs  |
+            |                                              |
+            |                                              |
+            +----------------------------------------------+
+            |  neg polarity clauses, non-inverting inputs  |
+            |                                              |
+            |                                              |
+            +----------------------------------------------+
+
+
+    The inverting automata matrix has the same structure:
 
         inverting_automata:
-            +-------------------------------------------+
-            |  positive polarity, inverting inputs      |
-            +-------------------------------------------+
-            |  negative polarity, inverting inputs      |
-            +-------------------------------------------+
+            +----------------------------------------------+
+            |  pos polarity clauses, non-inverting inputs  |
+            |                                              |
+            |                                              |
+            +----------------------------------------------+
+            |  neg polarity clauses, non-inverting inputs  |
+            |                                              |
+            |                                              |
+            +----------------------------------------------+
+
 
     Attributes:
         class_count: Number of boolean outputs (classes).
         clause_count: Total number of clauses in the machine.
+        clauses_per_class: Number of clauses for each class, must be mult. of 2.
         feature_count: Number of boolean inputs.
         state_count: Number of states in each Tsetlin automata.
         s: system parameter (?)
@@ -482,6 +519,9 @@ class TsetlinMachine:
             raise ValueError('clause_count must be a multiple of class_count')
         self.class_count = class_count
         self.clause_count = clause_count
+        self.clauses_per_class = clause_count // class_count
+        if (self.clauses_per_class % 2 != 0):
+            raise ValueError('Each class must have an even number of clauses.')
         self.feature_count = feature_count
         self.state_count = state_count
         self.s = s
@@ -572,10 +612,12 @@ class TsetlinMachine:
             sum = torch.sum(subvotes)
 
             # Not clear how the following block helps
+            '''
             if sum > self.threshold:
                 sum = self.threshold
             elif sum < -self.threshold:
                 sum = -self.threshold
+            '''
 
             class_votes.append(sum)
         return IntTensor(class_votes)
@@ -619,7 +661,25 @@ class TsetlinMachine:
         accuracy = (examples - errors) / examples
         return accuracy
 
-    def train(self, input: ByteTensor, target: int):
+    def low_probability(self):
+        """Compute an array of low probabilities.
+
+        Returns:
+            boolean array of shape [clauses, features]
+        """
+        return (torch.rand((self.clause_count, self.feature_count))
+               <= 1.0 / self.s).astype(np.int8)
+
+    def high_probability(self):
+        """Compute an array of high probabilities.
+
+        Returns:
+            boolean array of shape [clauses, features]
+        """
+        return (torch.rand((self.clause_count, self.feature_count))
+               <= (self.s - 1.0) / self.s).astype(np.int8)
+
+    def train(self, input: ByteTensor, target_class: int):
         """Train the machine with a single example.
 
         Args:
@@ -628,8 +688,8 @@ class TsetlinMachine:
 
         """
         # Randomly pick one of the other classes for pairwise learning.
-        negative_target_class = target
-        while negative_target_class == target:
+        negative_target_class = target_class
+        while negative_target_class == target_class:
             negative_target_class = random.randint(0, self.class_count)
 
         ###############################
@@ -647,22 +707,62 @@ class TsetlinMachine:
         #####################################
 
         # Initialize feedback to clauses
-        feedback = IntTensor((self.clause_count, )).zero_()
 
-        # Calculate feedback to clauses
+        # Process target.
+        # Here we are merely trying to figure out which clauses need feedback,
+        # not what the feedback is.
+        target_feedback = IntTensor(self.clause_count).zero_()
+        half = self.clauses_per_class // 2
+        feedback_threshold = torch.rand((self.clauses_per_class, ))
+        feedback_threshold = feedback_threshold <= (1.0 / (self.threshold * 2)) * \
+                           (self.threshold - votes[target_class])
+        start = 0
+        mid = start + half
+        end = start + self.clauses_per_class
+        target_feedback[start : mid] += feedback_threshold[:half]
+        target_feedback[mid : end] -= feedback_threshold[half:]
 
-        # Feedback to target class
+        # Process negative target
+        neg_target_feedback = IntTensor(self.clause_count).zero_()
+        half = self.clauses_per_class // 2
+        feedback_threshold = torch.rand((self.clauses_per_class, ))
+        feedback_threshold = feedback_threshold <= (1.0 / (self.threshold * 2)) * \
+                           (self.threshold + votes[target_class])
+        start = 0
+        mid = start + half
+        end = start + self.clauses_per_class
+        neg_target_feedback[start : mid] -= feedback_threshold[:half]
+        neg_target_feedback[mid : end] += feedback_threshold[half:]
 
 
         #################################
         ### Train Individual Automata ###
         #################################
 
-        ####################################################
-        ### Type I Feedback (Combats False Negatives) ###
-        ####################################################
+        '''
+        low_prob = self.low_probability()
+        high_prob = self.high_probability()
 
-        #####################################################
-        ### Type II Feedback (Combats False Positives) ###
-        #####################################################
+        # The reshape/view trick allows us to multiply the rows of a 2D matrix,
+        # with the rows of the 1D clause_output.
+        clause_matrix = clause_outputs.view(-1, 1)
+        inv_clause_matrix = clause_matrix ^ 1
+        pos_feedback_matrix = (feedback_matrix > 0).view(-1, 1)
+        neg_feedback_matrix = (feedback_matrix < 0).view(-1, 1)
 
+        # Vectorization -- this is essentially unreadable. It replaces
+        # the commented out code just below it
+        low_delta = inv_clause_matrix * (-low_prob)
+        delta =  clause_matrix * (X * high_prob - (1-X) * low_prob)
+        delta_neg = clause_matrix * (-X * low_prob + (1 - X) * high_prob)
+
+        not_action_include = (self.ta_state <= self.number_of_states)
+        not_action_include_negated = (
+                    self.ta_state_neg <= self.number_of_states)
+
+        self.ta_state += pos_feedback_matrix * (low_delta + delta) + \
+            neg_feedback_matrix * (clause_matrix * (1 - X) * (not_action_include))
+
+        self.ta_state_neg += pos_feedback_matrix * (low_delta + delta_neg) + \
+            neg_feedback_matrix * clause_matrix * X * (not_action_include_negated)
+        '''
