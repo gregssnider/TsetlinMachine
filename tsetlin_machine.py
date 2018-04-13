@@ -5,7 +5,7 @@ from torch import IntTensor, ByteTensor
 import random
 import time
 from numba import jitclass
-from numba import int32, float32, int64, float64
+from numba import int8, int32, float32, int64, float64
 
 '''
 RAND_MAX = 1024 * 1024
@@ -26,6 +26,8 @@ spec = [
     ('number_of_states', int32),
     ('ta_state', int32[:,:]),             # indices: [clause, feature]
     ('ta_state_neg', int32[:,:]),         # indices: [clause, feature]
+    ('action', int8[:,:]),               # indices: [clause, feature]
+    ('action_neg', int8[:,:]),           # indices: [clause, feature]
     ('clause_count', int32[:]),           # index: [class]
     ('clause_sign', int32[:,:]),          # indices: [class, clause]
     ('global_clause_index', int32[:,:]),  # indices: [class, feature]
@@ -58,6 +60,8 @@ class MultiClassTsetlinMachine:
                                          size=(number_of_clauses, number_of_features)).astype(np.int32)
         self.ta_state_neg = np.random.choice(np.array([number_of_states, number_of_states+1]),
                                          size=(number_of_clauses, number_of_features)).astype(np.int32)
+        self.action = np.zeros((number_of_clauses, number_of_features), dtype=np.int8)
+        self.action_neg = np.zeros((number_of_clauses, number_of_features), dtype=np.int8)
 
         # Data structures for keeping track of which clause refers to which class, and the sign of the clause
         self.clause_count = np.zeros((number_of_classes,), dtype=np.int32)
@@ -83,6 +87,11 @@ class MultiClassTsetlinMachine:
                     self.clause_sign[i, self.clause_count[i]] = -1
 
                 self.clause_count[i] += 1
+        self.update_action()
+
+    def update_action(self):
+        self.action = (self.ta_state > self.number_of_states)
+        self.action_neg = (self.ta_state_neg > self.number_of_states)
 
     # Calculate the output of each clause using the actions of each Tsetline Automaton.
     # Output is stored an internal output array.
@@ -331,6 +340,7 @@ class MultiClassTsetlinMachine:
         '''
 
         self.clamp_automata()
+        self.update_action()
 
     def clamp_automata(self):
         """Clamp all automata states to the range[1, 2*number_of_states]."""
