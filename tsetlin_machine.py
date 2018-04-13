@@ -703,9 +703,11 @@ class TsetlinMachine:
         low_prob = self._low_probability(self.clauses_per_class, self.feature_count)
         high_prob = self._high_probability(self.clauses_per_class, self.feature_count)
 
-
         # The reshape/view trick allows us to multiply the rows of a 2D matrix,
         # with the rows of the 1D clause_output.
+
+        Need to do expand_as rather than view here....
+
         clause_matrix = clause_outputs.view(-1, 1)
         inv_clause_matrix = clause_matrix ^ 1
         pos_feedback_matrix = (feedback > 0).view(-1, 1)
@@ -713,7 +715,7 @@ class TsetlinMachine:
 
         # Vectorization -- this is essentially unreadable. It replaces
         # the commented out code just below it
-        low_delta = inv_clause_matrix * (-1 * low_prob.int())
+        low_delta = -(inv_clause_matrix * low_prob).char()
         delta =  clause_matrix * (input * high_prob - (1-input) * low_prob)
         delta_neg = clause_matrix * (-input * low_prob + (1 - input) * high_prob)
 
