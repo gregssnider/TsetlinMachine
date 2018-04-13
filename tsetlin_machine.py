@@ -272,14 +272,14 @@ class MultiClassTsetlinMachine:
         start = self.global_clause_index[target_class, 0]
         mid = start + clauses_in_class // 2
         end = start + clauses_in_class
-
-
+        '''
         self.feedback_to_clauses[start : mid] += feedback_threshold[:half]
         self.feedback_to_clauses[mid : end] -= feedback_threshold[half:]
-
         '''
+
+
         for j in range(clauses_in_class):
-            if feedback_threshold[j]:
+            if feedback_threshold[j] == 0:
                 continue
             global_clause_index = self.global_clause_index[target_class, j]
             if j < clauses_in_class // 2:
@@ -288,16 +288,27 @@ class MultiClassTsetlinMachine:
             else:
                 # Type II Feedback
                 self.feedback_to_clauses[global_clause_index] -= 1
-        '''
 
 
 
         clauses_in_class = self.clause_count[negative_target_class]
+        half = clauses_in_class // 2
         feedback_threshold = np.random.random((clauses_in_class, ))
-        feedback_threshold = feedback_threshold > (1.0 / (self.threshold * 2)) * \
+        feedback_threshold = feedback_threshold <= (1.0 / (self.threshold * 2)) * \
                            (self.threshold + self.class_sum[negative_target_class])
+
+        start = self.global_clause_index[negative_target_class, 0]
+        mid = start + clauses_in_class // 2
+        end = start + clauses_in_class
+        '''
+        self.feedback_to_clauses[start : mid] += feedback_threshold[:half]
+        self.feedback_to_clauses[mid : end] -= feedback_threshold[half:]
+        '''
+
+
+
         for j in range(clauses_in_class):
-            if feedback_threshold[j]:
+            if feedback_threshold[j] == 0:
                 continue
             global_clause_index = self.global_clause_index[negative_target_class, j]
             if j < clauses_in_class // 2:
@@ -438,8 +449,8 @@ if __name__ == '__main__':
         tsetlin_machine.fit(X_training, y_training, y_training.shape[0], epochs)
         elapsed_time = time.time() - start_time
         accuracy = tsetlin_machine.evaluate(X_test, y_test, y_test.shape[0])
-        print("  Accuracy on test data (no noise):", accuracy,
-              'elapsed time:', elapsed_time)
+        print("  ", step," Accuracy on test data (no noise):", accuracy,
+              ', elapsed time:', elapsed_time)
         sum_accuracy += accuracy
     print('Avg accuracy', sum_accuracy / steps)
 
