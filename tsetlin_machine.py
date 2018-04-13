@@ -661,22 +661,22 @@ class TsetlinMachine:
         accuracy = (examples - errors) / examples
         return accuracy
 
-    def low_probability(self):
+    def low_probability(self, rows: int, columns: int):
         """Compute an array of low probabilities.
 
         Returns:
-            boolean array of shape [clauses, features]
+            boolean array of shape [rows][columns]
         """
-        return (torch.rand((self.clause_count, self.feature_count))
+        return (torch.rand((rows, columns))
                <= 1.0 / self.s).astype(np.int8)
 
-    def high_probability(self):
+    def high_probability(self, rows: int, columns: int):
         """Compute an array of high probabilities.
 
         Returns:
-            boolean array of shape [clauses, features]
+            boolean array of shape [rows][columns]
         """
-        return (torch.rand((self.clause_count, self.feature_count))
+        return (torch.rand((rows, columns))
                <= (self.s - 1.0) / self.s).astype(np.int8)
 
     def train(self, input: ByteTensor, target_class: int):
@@ -688,9 +688,9 @@ class TsetlinMachine:
 
         """
         # Randomly pick one of the other classes for pairwise learning.
-        negative_target_class = target_class
-        while negative_target_class == target_class:
-            negative_target_class = random.randint(0, self.class_count)
+        anti_target_class = target_class
+        while anti_target_class == target_class:
+            anti_target_class = random.randint(0, self.class_count)
 
         ###############################
         ### Calculate Clause Output ###
@@ -706,11 +706,10 @@ class TsetlinMachine:
         ### Calculate Feedback to Clauses ###
         #####################################
 
-        # Initialize feedback to clauses
-
+        ###########################
         # Process target.
-        # Here we are merely trying to figure out which clauses need feedback,
-        # not what the feedback is.
+        ###########################
+
         target_feedback = IntTensor(self.clause_count).zero_()
         half = self.clauses_per_class // 2
         feedback_threshold = torch.rand((self.clauses_per_class, ))
@@ -722,8 +721,40 @@ class TsetlinMachine:
         target_feedback[start : mid] += feedback_threshold[:half]
         target_feedback[mid : end] -= feedback_threshold[half:]
 
-        # Process negative target
-        neg_target_feedback = IntTensor(self.clause_count).zero_()
+        # At this point, the target_feedback matrix holds 0's, 1's, and -1's.
+
+        # We now train the non-inverting automata.
+        low_prob = self.low_probability(self.clauses_per_class, self.feature_count)
+        high_prob = self.high_probability(self.clauses_per_class, self.feature_count)
+
+
+        # The reshape/view trick allows us to multiply the rows of a 2D matrix,
+        # with the rows of the 1D clause_output.
+        clause_matrix = clause_outputs.view(-1, 1)
+        inv_clause_matrix = clause_matrix ^ 1
+        pos_feedback_matrix = (target_feedback > 0).view(-1, 1)
+        neg_feedback_matrix = (target_feedback < 0).view(-1, 1)
+
+        # Vectorization -- this is essentially unreadable. It replaces
+        # the commented out code just below it
+        low_delta = inv_clause_matrix * (-low_prob)
+        delta =  clause_matrix * (input * high_prob - (1-input) * low_prob)
+        delta_neg = clause_matrix * (-input * low_prob + (1 - input) * high_prob)
+
+        not_action_include = (self.automata <= self.state_count)
+        not_action_include_negated = (self.inverting_automata <= self.state_count)
+
+        self.automata[start: end] += pos_feedback_matrix * (low_delta + delta) + \
+            neg_feedback_matrix * (clause_matrix * (1 - input) * (not_action_include))
+
+        self.automata[start: end] += pos_feedback_matrix * (low_delta + delta_neg) + \
+            neg_feedback_matrix * clause_matrix * input * (not_action_include_negated)
+
+
+        ###########################
+        # Process anti target
+        ###########################
+        anti_target_feedback = IntTensor(self.clause_count).zero_()
         half = self.clauses_per_class // 2
         feedback_threshold = torch.rand((self.clauses_per_class, ))
         feedback_threshold = feedback_threshold <= (1.0 / (self.threshold * 2)) * \
@@ -731,38 +762,35 @@ class TsetlinMachine:
         start = 0
         mid = start + half
         end = start + self.clauses_per_class
-        neg_target_feedback[start : mid] -= feedback_threshold[:half]
-        neg_target_feedback[mid : end] += feedback_threshold[half:]
+        anti_target_feedback[start : mid] -= feedback_threshold[:half]
+        anti_target_feedback[mid : end] += feedback_threshold[half:]
 
+        # At this point, the anti_target_feedback matrix holds only
+        # 0's, 1's and -1's.
 
-        #################################
-        ### Train Individual Automata ###
-        #################################
+        # We now train the inverting automata.
+        low_prob = self.low_probability(self.clauses_per_class, self.feature_count)
+        high_prob = self.high_probability(self.clauses_per_class, self.feature_count)
 
-        '''
-        low_prob = self.low_probability()
-        high_prob = self.high_probability()
 
         # The reshape/view trick allows us to multiply the rows of a 2D matrix,
         # with the rows of the 1D clause_output.
         clause_matrix = clause_outputs.view(-1, 1)
         inv_clause_matrix = clause_matrix ^ 1
-        pos_feedback_matrix = (feedback_matrix > 0).view(-1, 1)
-        neg_feedback_matrix = (feedback_matrix < 0).view(-1, 1)
+        pos_feedback_matrix = (anti_target_feedback > 0).view(-1, 1)
+        neg_feedback_matrix = (anti_target_feedback < 0).view(-1, 1)
 
         # Vectorization -- this is essentially unreadable. It replaces
         # the commented out code just below it
         low_delta = inv_clause_matrix * (-low_prob)
-        delta =  clause_matrix * (X * high_prob - (1-X) * low_prob)
-        delta_neg = clause_matrix * (-X * low_prob + (1 - X) * high_prob)
+        delta =  clause_matrix * (input * high_prob - (1-input) * low_prob)
+        delta_neg = clause_matrix * (-input * low_prob + (1 - input) * high_prob)
 
-        not_action_include = (self.ta_state <= self.number_of_states)
-        not_action_include_negated = (
-                    self.ta_state_neg <= self.number_of_states)
+        not_action_include = (self.automata <= self.state_count)
+        not_action_include_negated = (self.inverting_automata <= self.state_count)
 
-        self.ta_state += pos_feedback_matrix * (low_delta + delta) + \
-            neg_feedback_matrix * (clause_matrix * (1 - X) * (not_action_include))
+        self.automata[start: end] += pos_feedback_matrix * (low_delta + delta) + \
+            neg_feedback_matrix * (clause_matrix * (1 - input) * (not_action_include))
 
-        self.ta_state_neg += pos_feedback_matrix * (low_delta + delta_neg) + \
-            neg_feedback_matrix * clause_matrix * X * (not_action_include_negated)
-        '''
+        self.automata[start: end] += pos_feedback_matrix * (low_delta + delta_neg) + \
+            neg_feedback_matrix * clause_matrix * input * (not_action_include_negated)
