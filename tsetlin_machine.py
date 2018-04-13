@@ -271,12 +271,6 @@ class MultiClassTsetlinMachine:
         for j in range(clauses_in_class):
             if feedback_threshold[j]:
                 continue
-            '''
-            if self.rand() > (1.0 / (self.threshold * 2)) * \
-                    (self.threshold - self.class_sum[target_class]):
-                continue
-            '''
-
             global_clause_index = self.global_clause_index[target_class, j]
             if j < clauses_in_class // 2:
                 # Type I Feedback
@@ -292,12 +286,6 @@ class MultiClassTsetlinMachine:
         for j in range(clauses_in_class):
             if feedback_threshold[j]:
                 continue
-            '''
-            if self.rand() > (1.0/(self.threshold*2)) * \
-                    (self.threshold + self.class_sum[negative_target_class]):
-                continue
-            '''
-
             global_clause_index = self.global_clause_index[negative_target_class, j]
             if j < clauses_in_class // 2:
                 # Type I Feedback
