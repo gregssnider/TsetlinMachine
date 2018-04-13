@@ -76,9 +76,10 @@ class MultiClassTsetlinMachine:
 
         # Set up the Tsetlin Machine structure
         for i in range(number_of_classes):
-            for j in range(number_of_clauses // number_of_classes):
+            clauses_per_class = number_of_clauses // number_of_classes
+            for j in range(clauses_per_class):
                 self.global_clause_index[i, self.clause_count[i]] = \
-                    i * (number_of_clauses // number_of_classes) + j
+                    i * (clauses_per_class) + j
 
                 if j % 2 == 0:
                     self.clause_sign[i, self.clause_count[i]] = 1
