@@ -265,13 +265,17 @@ class MultiClassTsetlinMachine:
         # Calculate feedback to clauses
         clauses_in_class = self.clause_count[target_class]
         feedback_threshold = np.random.random((clauses_in_class, ))
-        feedback_threshold = feedback_threshold <= (1.0 / (self.threshold * 2)) * \
+        feedback_threshold = feedback_threshold > (1.0 / (self.threshold * 2)) * \
                            (self.threshold - self.class_sum[target_class])
 
         for j in range(clauses_in_class):
+            if feedback_threshold[j]:
+                continue
+            '''
             if self.rand() > (1.0 / (self.threshold * 2)) * \
                     (self.threshold - self.class_sum[target_class]):
                 continue
+            '''
 
             global_clause_index = self.global_clause_index[target_class, j]
             if j < clauses_in_class // 2:
