@@ -381,45 +381,6 @@ class MultiClassTsetlinMachine:
         return
 
 
-if __name__ == '__main__':
-    # Parameters for the Tsetlin Machine
-    T = 15
-    s = 3.9
-    number_of_clauses = 20
-    states = 100
-
-    # Parameters of the pattern recognition problem
-    number_of_features = 12
-    number_of_classes = 2
-
-    # Training configuration
-    epochs = 200
-
-    # Loading of training and test data
-    training_data = np.loadtxt("NoisyXORTrainingData.txt").astype(dtype=np.int8)
-    test_data = np.loadtxt("NoisyXORTestData.txt").astype(dtype=np.int8)
-
-    X_training = training_data[:, 0:12]  # Input features
-    y_training = training_data[:, 12]  # Target value
-    X_test = test_data[:, 0:12]  # Input features
-    y_test = test_data[:, 12]  # Target value
-
-    print("Noisy XOR")
-    sum_accuracy = 0
-    steps = 50
-    for step in range(steps):
-        start_time = time.time()
-        tsetlin_machine = MultiClassTsetlinMachine(
-            number_of_classes, number_of_clauses, number_of_features, states, s, T)
-        tsetlin_machine.fit(X_training, y_training, y_training.shape[0], epochs)
-        elapsed_time = time.time() - start_time
-        accuracy = tsetlin_machine.evaluate(X_test, y_test, y_test.shape[0])
-        print("  ", step," Accuracy on test data (no noise):", accuracy,
-              ', elapsed time:', elapsed_time)
-        sum_accuracy += accuracy
-    print('Avg accuracy', sum_accuracy / steps)
-
-
 class TsetlinMachine:
     """The Tsetlin Machine.
 
@@ -629,6 +590,7 @@ class TsetlinMachine:
         Returns:
             The index of the class of the input (scalar held in tensor).
         """
+        assert isinstance(input, ByteTensor)
         clause_outputs = self.evaluate_clauses(input)
         class_votes = self.sum_up_class_votes(clause_outputs)
         value, index = torch.max(class_votes, 0)
@@ -644,6 +606,9 @@ class TsetlinMachine:
         Returns:
             Classification accuracy of the machine.
         """
+        assert isinstance(inputs, ByteTensor)
+        assert isinstance(targets, IntTensor)
+
         errors = 0
         examples = targets.shape[0]
         for i in range(examples):
@@ -666,7 +631,7 @@ class TsetlinMachine:
             boolean array of shape [rows][columns]
         """
         return (torch.rand((rows, columns))
-               <= 1.0 / self.s).astype(np.int8)
+               <= 1.0 / self.s).byte()
 
     def high_probability(self, rows: int, columns: int):
         """Compute an array of high probabilities.
@@ -675,7 +640,7 @@ class TsetlinMachine:
             boolean array of shape [rows][columns]
         """
         return (torch.rand((rows, columns))
-               <= (self.s - 1.0) / self.s).astype(np.int8)
+               <= (self.s - 1.0) / self.s).byte()
 
 
     def compute_feedback(self, target_class: int, votes: IntTensor,
@@ -692,6 +657,7 @@ class TsetlinMachine:
                 holds 0's and 1's. The second half holds feedback for the
                 inverting automata and holds 0's and -1's.
         """
+        assert isinstance(votes, IntTensor)
         target_feedback = IntTensor(self.clause_count).zero_()
         half = self.clauses_per_class // 2
         if is_anti_target:
@@ -700,7 +666,7 @@ class TsetlinMachine:
         else:
             thresh = (1.0 / (self.threshold * 2)) * (
                         self.threshold - votes[target_class])
-        feedback_threshold = torch.rand((self.clauses_per_class, )) <= thresh
+        feedback_threshold = (torch.rand((self.clauses_per_class, )) <= thresh).int()
         start = 0
         mid = start + half
         end = start + self.clauses_per_class
@@ -709,7 +675,7 @@ class TsetlinMachine:
         return target_feedback
 
 
-    def train_class(self, target_class: int, clause_outputs: IntTensor,
+    def train_class(self, target_class: int, clause_outputs: ByteTensor,
                     feedback: IntTensor):
         """
 
@@ -720,6 +686,9 @@ class TsetlinMachine:
         Returns:
 
         """
+        assert isinstance(clause_outputs, ByteTensor), str(type(clause_outputs))
+        assert isinstance(feedback, IntTensor), str(type(feedback))
+
         # We now train the non-inverting automata.
         low_prob = self.low_probability(self.clauses_per_class, self.feature_count)
         high_prob = self.high_probability(self.clauses_per_class, self.feature_count)
@@ -734,7 +703,7 @@ class TsetlinMachine:
 
         # Vectorization -- this is essentially unreadable. It replaces
         # the commented out code just below it
-        low_delta = inv_clause_matrix * (-low_prob)
+        low_delta = inv_clause_matrix * (-low_prob.int())
         delta =  clause_matrix * (input * high_prob - (1-input) * low_prob)
         delta_neg = clause_matrix * (-input * low_prob + (1 - input) * high_prob)
 
@@ -758,6 +727,8 @@ class TsetlinMachine:
             target: The class of the input
 
         """
+        assert isinstance(input, ByteTensor), str(type(input))
+
         # Randomly pick one of the other classes for pairwise learning.
         anti_target_class = target_class
         while anti_target_class == target_class:
@@ -786,3 +757,74 @@ class TsetlinMachine:
         anti_target_feedback = self.compute_feedback(anti_target_class, votes,
                                                      is_anti_target=True)
         self.train_class(anti_target_class, clause_outputs, target_feedback)
+
+        self.automata.clamp(1, 2 * self.state_count)
+        self.update_action()
+
+    def fit(self, X, y, number_of_examples, epochs=100):
+        print('X', type(X), X.dtype, 'y', type(y), y.dtype)
+        X = torch.from_numpy(X.astype(np.uint8)).char()
+        y = torch.from_numpy(y.astype(np.uint8)).char()
+        print('X', type(X), 'y', type(y))
+        print('----------------------')
+
+
+        Xi = ByteTensor(self.feature_count).zero_()
+
+        random_index = np.arange(number_of_examples)
+
+        for epoch in range(epochs):
+            np.random.shuffle(random_index)
+
+            for i in range(number_of_examples):
+                example_id = random_index[i]
+                target_class = y[example_id]
+
+                for j in range(self.feature_count):
+                    Xi[j] = X[example_id, j]
+                self.train(Xi, target_class)
+        return
+
+
+
+if __name__ == '__main__':
+    # Parameters for the Tsetlin Machine
+    T = 15
+    s = 3.9
+    number_of_clauses = 20
+    states = 100
+
+    # Parameters of the pattern recognition problem
+    number_of_features = 12
+    number_of_classes = 2
+
+    # Training configuration
+    epochs = 200
+
+    # Loading of training and test data
+    training_data = np.loadtxt("NoisyXORTrainingData.txt").astype(dtype=np.int8)
+    test_data = np.loadtxt("NoisyXORTestData.txt").astype(dtype=np.int8)
+    X_training = training_data[:, 0:12]  # Input features
+    y_training = training_data[:, 12]  # Target value
+    X_test = test_data[:, 0:12]  # Input features
+    y_test = test_data[:, 12]  # Target value
+
+    print("Noisy XOR")
+    sum_accuracy = 0
+    steps = 50
+    for step in range(steps):
+        start_time = time.time()
+        '''
+        tsetlin_machine = MultiClassTsetlinMachine(
+            number_of_classes, number_of_clauses, number_of_features, states, s, T)
+        '''
+        tsetlin_machine = TsetlinMachine(
+            number_of_classes, number_of_clauses, number_of_features, states, s, T)
+        tsetlin_machine.fit(X_training, y_training, y_training.shape[0], epochs)
+        elapsed_time = time.time() - start_time
+        accuracy = tsetlin_machine.evaluate(X_test, y_test, y_test.shape[0])
+        print("  ", step," Accuracy on test data (no noise):", accuracy,
+              ', elapsed time:', elapsed_time)
+        sum_accuracy += accuracy
+    print('Avg accuracy', sum_accuracy / steps)
+
