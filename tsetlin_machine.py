@@ -258,64 +258,30 @@ class MultiClassTsetlinMachine:
         # Initialize feedback to clauses
         self.feedback_to_clauses = np.zeros_like(self.feedback_to_clauses)
 
-        # When the
-        '''
-        '''
-
-        # Calculate feedback to clauses
+        # Process target
         clauses_in_class = self.clause_count[target_class]
         half = clauses_in_class // 2
         feedback_threshold = np.random.random((clauses_in_class, ))
         feedback_threshold = feedback_threshold <= (1.0 / (self.threshold * 2)) * \
                            (self.threshold - self.class_sum[target_class])
-
         start = self.global_clause_index[target_class, 0]
         mid = start + clauses_in_class // 2
         end = start + clauses_in_class
-
-
         self.feedback_to_clauses[start : mid] += feedback_threshold[:half]
         self.feedback_to_clauses[mid : end] -= feedback_threshold[half:]
-        '''
-        for j in range(clauses_in_class):
-            if feedback_threshold[j] == 0:
-                continue
-            global_clause_index = self.global_clause_index[target_class, j]
-            if j < clauses_in_class // 2:
-                # Type I Feedback
-                self.feedback_to_clauses[global_clause_index] += 1
-            else:
-                # Type II Feedback
-                self.feedback_to_clauses[global_clause_index] -= 1
-        '''
 
-
+        # Process negative target
         clauses_in_class = self.clause_count[negative_target_class]
         half = clauses_in_class // 2
         feedback_threshold = np.random.random((clauses_in_class, ))
         feedback_threshold = feedback_threshold <= (1.0 / (self.threshold * 2)) * \
                            (self.threshold + self.class_sum[negative_target_class])
-
         start = self.global_clause_index[negative_target_class, 0]
         mid = start + clauses_in_class // 2
         end = start + clauses_in_class
-
-
-
         self.feedback_to_clauses[start : mid] -= feedback_threshold[:half]
         self.feedback_to_clauses[mid : end] += feedback_threshold[half:]
-        '''
-        for j in range(clauses_in_class):
-            if feedback_threshold[j] == 0:
-                continue
-            global_clause_index = self.global_clause_index[negative_target_class, j]
-            if j < clauses_in_class // 2:
-                # Type I Feedback
-                self.feedback_to_clauses[global_clause_index] -= 1
-            else:
-                # Type II Feedback
-                self.feedback_to_clauses[global_clause_index] += 1
-        '''
+
 
         #################################
         ### Train Individual Automata ###
