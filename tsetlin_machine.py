@@ -95,6 +95,7 @@ class MultiClassTsetlinMachine:
     # Calculate the output of each clause using the actions of each Tsetline Automaton.
     # Output is stored an internal output array.
     def calculate_clause_output(self, X):
+
         for j in range(self.number_of_clauses):
             self.clause_output[j] = 1
             for k in range(self.number_of_features):
@@ -109,12 +110,13 @@ class MultiClassTsetlinMachine:
         # The reshape trick allows us to multiply the rows of a 2D matrix,
         # with the rows of the 1D clause_output.
         input_matrix = X.reshape(-1, 1)
-        input_matrix_neg = input_matrix ^ 1
-        self.clause_output = (self.action & input_matrix_neg) | \
-                             (self.action_neg & input_matrix)
+        input_matrix_neg = input_matrix ^ 1 & input_matrix
+        self.clause_output = self.action_neg.astype(np.int8)
+        #self.clause_output = (self.action_neg + input_matrix).astype(np.int8) #* \
+        #                     (self.action + input_matrix_neg)
+
         '''
-
-
+        
     # Sum up the votes for each class (this is the multiclass version of the Tsetlin Machine)
     def sum_up_class_votes(self):
         for target_class in range(self.number_of_classes):
@@ -216,7 +218,7 @@ class MultiClassTsetlinMachine:
             boolean array of shape [clauses, features]
         """
         return (np.random.random((self.number_of_clauses, self.number_of_features)) \
-               <= 1.0 / self.s).astype(np.int32)
+               <= 1.0 / self.s).astype(np.int8)
 
     def high_probability(self):
         """Compute an array of high probabilities.
@@ -225,7 +227,7 @@ class MultiClassTsetlinMachine:
             boolean array of shape [clauses, features]
         """
         return (np.random.random((self.number_of_clauses, self.number_of_features)) \
-               <= (self.s - 1.0) / self.s).astype(np.int32)
+               <= (self.s - 1.0) / self.s).astype(np.int8)
 
     def update(self, X, target_class):
 
