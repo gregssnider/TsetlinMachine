@@ -81,7 +81,9 @@ class MultiClassTsetlinMachine:
                 self.global_clause_index[i, self.clause_count[i]] = \
                     i * (clauses_per_class) + j
 
-                if j % 2 == 0:
+                # To allow for better vectorization, we move negative polarity
+                # clauses to the second half of the array.
+                if j < clauses_per_class // 2:
                     self.clause_sign[i, self.clause_count[i]] = 1
                 else:
                     self.clause_sign[i, self.clause_count[i]] = -1
