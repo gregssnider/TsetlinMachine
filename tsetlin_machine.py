@@ -1,7 +1,7 @@
 import numpy as np
 import random
 import torch
-from torch import IntTensor, ByteTensor
+from torch import IntTensor, ByteTensor, CharTensor
 import random
 import time
 from numba import jitclass
@@ -505,7 +505,7 @@ class TsetlinMachine:
         self.action = self.automata > self.state_count
         self.inverting_action = self.inverting_automata > self.state_count
 
-    def evaluate_clauses(self, input: torch.ByteTensor) -> torch.ByteTensor:
+    def evaluate_clauses(self, input: ByteTensor) -> ByteTensor:
         """Evaluate all clauses in the array.
 
         Args:
@@ -517,6 +517,8 @@ class TsetlinMachine:
                 contains the positive polarity clauses, the second half contains
                 the negative polarity clauses.
         """
+        assert isinstance(input, ByteTensor)
+
         # First we process the non-inverting automata.
         # We collect the 'used_bits' matrix, those bits that are used by each
         # clause in computing the conjunction of the non-inverted input.s
@@ -530,6 +532,7 @@ class TsetlinMachine:
         used_row_sums = torch.sum(used_bits.int(), 1)
         masked_input_row_sums = torch.sum(masked_input.int(), 1)
         conjunction = used_row_sums.eq(masked_input_row_sums)
+        assert type(conjunction) == ByteTensor, str(type(conjunction))
 
         # Repeat the above computations for the inverting automata.
         inv_input = ~input
@@ -543,6 +546,7 @@ class TsetlinMachine:
         #   (1) conjunction of used, non-inverting inputs
         #   (2) conjunction of used, inverted inputs
         clause_result = conjunction & inv_conjunction
+        assert isinstance(clause_result, ByteTensor), str(type(clause_result))
         return clause_result
 
     def sum_up_class_votes(self, clause_outputs: ByteTensor) -> IntTensor:
@@ -557,6 +561,8 @@ class TsetlinMachine:
             1D tensor with vote count for each class.
 
         """
+        assert isinstance(clause_outputs, ByteTensor)
+
         # We split the clauses into positive polarity and negative polarity,
         # then compute the polarity-weighted votes.
         clauses = clause_outputs.shape[0]
@@ -591,6 +597,7 @@ class TsetlinMachine:
             The index of the class of the input (scalar held in tensor).
         """
         assert isinstance(input, ByteTensor)
+
         clause_outputs = self.evaluate_clauses(input)
         class_votes = self.sum_up_class_votes(clause_outputs)
         value, index = torch.max(class_votes, 0)
@@ -624,26 +631,28 @@ class TsetlinMachine:
         accuracy = (examples - errors) / examples
         return accuracy
 
-    def low_probability(self, rows: int, columns: int):
+    def _low_probability(self, rows: int, columns: int) -> ByteTensor:
         """Compute an array of low probabilities.
 
+        Each element in the array is 1 with probability (1 / s).
+
         Returns:
             boolean array of shape [rows][columns]
         """
-        return (torch.rand((rows, columns))
-               <= 1.0 / self.s).byte()
+        return torch.rand((rows, columns)) <= 1.0 / self.s
 
-    def high_probability(self, rows: int, columns: int):
+    def _high_probability(self, rows: int, columns: int) -> ByteTensor:
         """Compute an array of high probabilities.
 
+        Each element in the array is 1 with probability (s-1 / s).
+
         Returns:
             boolean array of shape [rows][columns]
         """
-        return (torch.rand((rows, columns))
-               <= (self.s - 1.0) / self.s).byte()
+        return torch.rand((rows, columns)) <= (self.s - 1.0) / self.s
 
 
-    def compute_feedback(self, target_class: int, votes: IntTensor,
+    def _compute_feedback(self, target_class: int, votes: IntTensor,
                          is_anti_target: bool) -> IntTensor:
         """Compute feedback for a given target class
 
@@ -658,6 +667,7 @@ class TsetlinMachine:
                 inverting automata and holds 0's and -1's.
         """
         assert isinstance(votes, IntTensor)
+
         target_feedback = IntTensor(self.clause_count).zero_()
         half = self.clauses_per_class // 2
         if is_anti_target:
@@ -675,7 +685,7 @@ class TsetlinMachine:
         return target_feedback
 
 
-    def train_class(self, target_class: int, clause_outputs: ByteTensor,
+    def _train_class(self, target_class: int, clause_outputs: ByteTensor,
                     feedback: IntTensor):
         """
 
@@ -690,8 +700,8 @@ class TsetlinMachine:
         assert isinstance(feedback, IntTensor), str(type(feedback))
 
         # We now train the non-inverting automata.
-        low_prob = self.low_probability(self.clauses_per_class, self.feature_count)
-        high_prob = self.high_probability(self.clauses_per_class, self.feature_count)
+        low_prob = self._low_probability(self.clauses_per_class, self.feature_count)
+        high_prob = self._high_probability(self.clauses_per_class, self.feature_count)
 
 
         # The reshape/view trick allows us to multiply the rows of a 2D matrix,
@@ -703,7 +713,7 @@ class TsetlinMachine:
 
         # Vectorization -- this is essentially unreadable. It replaces
         # the commented out code just below it
-        low_delta = inv_clause_matrix * (-low_prob.int())
+        low_delta = inv_clause_matrix * (-1 * low_prob.int())
         delta =  clause_matrix * (input * high_prob - (1-input) * low_prob)
         delta_neg = clause_matrix * (-input * low_prob + (1 - input) * high_prob)
 
@@ -747,16 +757,16 @@ class TsetlinMachine:
         ###########################
         # Train automata for target class
         ###########################
-        target_feedback = self.compute_feedback(target_class, votes,
+        target_feedback = self._compute_feedback(target_class, votes,
                                                 is_anti_target=False)
-        self.train_class(target_class, clause_outputs, target_feedback)
+        self._train_class(target_class, clause_outputs, target_feedback)
 
         ###########################
         # Train automata for anti-target class
         ###########################
-        anti_target_feedback = self.compute_feedback(anti_target_class, votes,
+        anti_target_feedback = self._compute_feedback(anti_target_class, votes,
                                                      is_anti_target=True)
-        self.train_class(anti_target_class, clause_outputs, target_feedback)
+        self._train_class(anti_target_class, clause_outputs, target_feedback)
 
         self.automata.clamp(1, 2 * self.state_count)
         self.update_action()
