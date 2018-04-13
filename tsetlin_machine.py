@@ -82,7 +82,7 @@ class MultiClassTsetlinMachine:
                     i * (clauses_per_class) + j
 
                 # To allow for better vectorization, we move negative polarity
-                # clauses to the second half of the array.
+                # clauses to the second half of the subarray for the class
                 if j < clauses_per_class // 2:
                     self.clause_sign[i, self.clause_count[i]] = 1
                 else:
@@ -266,12 +266,20 @@ class MultiClassTsetlinMachine:
         '''
 
         # Calculate feedback to clauses
-        for j in range(self.clause_count[target_class]):
+        clauses_in_class = self.clause_count[target_class]
+        for j in range(clauses_in_class):
             if self.rand() > (1.0 / (self.threshold * 2)) * \
                     (self.threshold - self.class_sum[target_class]):
                 continue
 
             global_clause_index = self.global_clause_index[target_class, j]
+            if j < clauses_in_class // 2:
+                # Type I Feedback
+                self.feedback_to_clauses[global_clause_index] += 1
+            else:
+                # Type II Feedback
+                self.feedback_to_clauses[global_clause_index] -= 1
+            '''
             if self.clause_sign[target_class,j] > 0:
                 # Type I Feedback
                 self.feedback_to_clauses[global_clause_index] += 1
@@ -279,13 +287,22 @@ class MultiClassTsetlinMachine:
             elif self.clause_sign[target_class,j] < 0:
                 # Type II Feedback
                 self.feedback_to_clauses[global_clause_index] -= 1
+            '''
 
-        for j in range(self.clause_count[negative_target_class]):
+        clauses_in_class = self.clause_count[negative_target_class]
+        for j in range(clauses_in_class):
             if self.rand() > (1.0/(self.threshold*2)) * \
                     (self.threshold + self.class_sum[negative_target_class]):
                 continue
 
             global_clause_index = self.global_clause_index[negative_target_class, j]
+            if j < clauses_in_class // 2:
+                # Type I Feedback
+                self.feedback_to_clauses[global_clause_index] -= 1
+            else:
+                # Type II Feedback
+                self.feedback_to_clauses[global_clause_index] += 1
+            '''
             if self.clause_sign[negative_target_class,j] > 0:
                 # Type II Feedback
                 self.feedback_to_clauses[global_clause_index] -= 1
@@ -293,6 +310,7 @@ class MultiClassTsetlinMachine:
             elif self.clause_sign[negative_target_class,j] < 0:
                 # Type I Feedback
                 self.feedback_to_clauses[global_clause_index] += 1
+            '''
 
         #################################
         ### Train Individual Automata ###
