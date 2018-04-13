@@ -31,7 +31,7 @@ spec = [
     ('clause_count', int32[:]),           # index: [class]
     ('clause_sign', int32[:,:]),          # indices: [class, clause]
     ('global_clause_index', int32[:,:]),  # indices: [class, feature]
-    ('clause_output', int32[::1]),
+    ('clause_output', int8[::1]),
     ('class_sum', int32[:]),
     ('feedback_to_clauses', int32[::1]),
     ('threshold', int32),
@@ -70,8 +70,7 @@ class MultiClassTsetlinMachine:
             number_of_clauses), dtype=np.int32)
 
         # Data structures for intermediate calculations (clause output, summation of votes, and feedback to clauses)
-        self.clause_output = np.zeros(shape=(number_of_clauses,),
-                                      dtype=np.int32)
+        self.clause_output = np.zeros(shape=(number_of_clauses,), dtype=np.int8)
         self.class_sum = np.zeros(shape=(number_of_classes,), dtype=np.int32)
         self.feedback_to_clauses = np.zeros(shape=(number_of_clauses), dtype=np.int32)
 
@@ -99,10 +98,6 @@ class MultiClassTsetlinMachine:
         for j in range(self.number_of_clauses):
             self.clause_output[j] = 1
             for k in range(self.number_of_features):
-                '''
-                action_include = self.get_action(self.ta_state[j,k])
-                action_include_negated = self.get_action(self.ta_state_neg[j,k])
-                '''
                 action_include = self.action[j, k]
                 action_include_negated = self.action_neg[j, k]
 
@@ -110,6 +105,12 @@ class MultiClassTsetlinMachine:
                         (action_include_negated == 1 and X[k] == 1):
                     self.clause_output[j] = 0
                     break
+        '''
+        # The reshape trick allows us to multiply the rows of a 2D matrix,
+        # with the rows of the 1D clause_output.
+        input_matrix = X.reshape(-1, 1)
+        self.action
+        '''
 
     # Sum up the votes for each class (this is the multiclass version of the Tsetlin Machine)
     def sum_up_class_votes(self):
@@ -120,7 +121,7 @@ class MultiClassTsetlinMachine:
                 global_clause_index = self.global_clause_index[target_class, j]
                 self.class_sum[target_class] += \
                     self.clause_output[global_clause_index] * \
-                    self.clause_sign[target_class,j]
+                    self.clause_sign[target_class, j]
 
             if self.class_sum[target_class] > self.threshold:
                 self.class_sum[target_class] = self.threshold
