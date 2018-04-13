@@ -109,8 +109,11 @@ class MultiClassTsetlinMachine:
         # The reshape trick allows us to multiply the rows of a 2D matrix,
         # with the rows of the 1D clause_output.
         input_matrix = X.reshape(-1, 1)
-        self.action
+        input_matrix_neg = input_matrix ^ 1
+        self.clause_output = (self.action & input_matrix_neg) | \
+                             (self.action_neg & input_matrix)
         '''
+
 
     # Sum up the votes for each class (this is the multiclass version of the Tsetlin Machine)
     def sum_up_class_votes(self):
@@ -391,8 +394,8 @@ if __name__ == '__main__':
     epochs = 200
 
     # Loading of training and test data
-    training_data = np.loadtxt("NoisyXORTrainingData.txt").astype(dtype=np.int32)
-    test_data = np.loadtxt("NoisyXORTestData.txt").astype(dtype=np.int32)
+    training_data = np.loadtxt("NoisyXORTrainingData.txt").astype(dtype=np.int8)
+    test_data = np.loadtxt("NoisyXORTestData.txt").astype(dtype=np.int8)
 
     X_training = training_data[:, 0:12]  # Input features
     y_training = training_data[:, 12]  # Target value
