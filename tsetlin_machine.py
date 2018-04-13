@@ -90,10 +90,11 @@ class MultiClassTsetlinMachine:
         for j in range(self.number_of_clauses):
             self.clause_output[j] = 1
             for k in range(self.number_of_features):
-                action_include = self.action(self.ta_state[j,k])
-                action_include_negated = self.action(self.ta_state_neg[j,k])
+                action_include = self.get_action(self.ta_state[j,k])
+                action_include_negated = self.get_action(self.ta_state_neg[j,k])
 
-                if (action_include == 1 and X[k] == 0) or (action_include_negated == 1 and X[k] == 1):
+                if (action_include == 1 and X[k] == 0) or \
+                        (action_include_negated == 1 and X[k] == 1):
                     self.clause_output[j] = 0
                     break
 
@@ -144,7 +145,7 @@ class MultiClassTsetlinMachine:
         return max_class
 
     # Translates automata state to action
-    def action(self, state):
+    def get_action(self, state):
         if state <= self.number_of_states:
             return 0
         else:
