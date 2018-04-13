@@ -272,12 +272,11 @@ class MultiClassTsetlinMachine:
         start = self.global_clause_index[target_class, 0]
         mid = start + clauses_in_class // 2
         end = start + clauses_in_class
-        '''
+
+
         self.feedback_to_clauses[start : mid] += feedback_threshold[:half]
         self.feedback_to_clauses[mid : end] -= feedback_threshold[half:]
         '''
-
-
         for j in range(clauses_in_class):
             if feedback_threshold[j] == 0:
                 continue
@@ -288,7 +287,7 @@ class MultiClassTsetlinMachine:
             else:
                 # Type II Feedback
                 self.feedback_to_clauses[global_clause_index] -= 1
-
+        '''
 
 
         clauses_in_class = self.clause_count[negative_target_class]
@@ -300,13 +299,12 @@ class MultiClassTsetlinMachine:
         start = self.global_clause_index[negative_target_class, 0]
         mid = start + clauses_in_class // 2
         end = start + clauses_in_class
+
+
+
+        self.feedback_to_clauses[start : mid] -= feedback_threshold[:half]
+        self.feedback_to_clauses[mid : end] += feedback_threshold[half:]
         '''
-        self.feedback_to_clauses[start : mid] += feedback_threshold[:half]
-        self.feedback_to_clauses[mid : end] -= feedback_threshold[half:]
-        '''
-
-
-
         for j in range(clauses_in_class):
             if feedback_threshold[j] == 0:
                 continue
@@ -317,6 +315,7 @@ class MultiClassTsetlinMachine:
             else:
                 # Type II Feedback
                 self.feedback_to_clauses[global_clause_index] += 1
+        '''
 
         #################################
         ### Train Individual Automata ###
