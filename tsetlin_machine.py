@@ -676,7 +676,12 @@ class TsetlinMachine:
         else:
             thresh = (1.0 / (self.threshold * 2)) * (
                         self.threshold - votes[target_class])
-        feedback_threshold = (torch.rand((self.clauses_per_class, )) <= thresh).int()
+
+        # The first half of target_feedback holds feedback flags for the
+        # positive polarity clauses, the second half for negative polarity
+        # clauses.
+        feedback_threshold = (torch.rand((self.clauses_per_class, )
+                                         <= thresh).int())
         start = 0
         mid = start + half
         end = start + self.clauses_per_class
@@ -687,13 +692,14 @@ class TsetlinMachine:
 
     def _train_class(self, target_class: int, clause_outputs: ByteTensor,
                     feedback: IntTensor):
-        """
+        """Train the automata and inverting_automata for a single class.
 
         Args:
-            target_class:
-            feedback:
-
-        Returns:
+            target_class: The index of the class to be trained.
+            clause_outputs: 1D array of outputs of the clauses for
+                target_class, one entry for each clause.
+            feedback: 1D array of feedback flags (0, 1, -1) for target_class,
+                one entry for each clause of that class.
 
         """
         assert isinstance(clause_outputs, ByteTensor), str(type(clause_outputs))
@@ -706,7 +712,7 @@ class TsetlinMachine:
         # The reshape/view trick allows us to multiply the rows of a 2D matrix,
         # with the rows of the 1D clause_output.
 
-        Need to do expand_as rather than view here....
+        # Need to do expand_as rather than view here....
 
         clause_matrix = clause_outputs.view(-1, 1)
         inv_clause_matrix = clause_matrix ^ 1
@@ -826,12 +832,12 @@ if __name__ == '__main__':
     steps = 50
     for step in range(steps):
         start_time = time.time()
-        '''
         tsetlin_machine = MultiClassTsetlinMachine(
             number_of_classes, number_of_clauses, number_of_features, states, s, T)
         '''
         tsetlin_machine = TsetlinMachine(
             number_of_classes, number_of_clauses, number_of_features, states, s, T)
+        '''
         tsetlin_machine.fit(X_training, y_training, y_training.shape[0], epochs)
         elapsed_time = time.time() - start_time
         accuracy = tsetlin_machine.evaluate(X_test, y_test, y_test.shape[0])
