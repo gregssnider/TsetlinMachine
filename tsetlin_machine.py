@@ -4,8 +4,9 @@ import torch
 from torch import IntTensor, ByteTensor, CharTensor
 import random
 import time
-from numba import jitclass
+from numba import jitclass, jit
 from numba import int8, int32, float32, int64, float64
+import sys
 
 '''
 RAND_MAX = 1024 * 1024
@@ -37,6 +38,9 @@ spec = [
     ('threshold', int32),
 
 ]
+
+X_shape = 123
+
 
 @jitclass(spec)
 class MultiClassTsetlinMachine:
@@ -287,8 +291,8 @@ class MultiClassTsetlinMachine:
         ### Train Individual Automata ###
         #################################
 
-        low_prob = self.low_probability()
-        high_prob = self.high_probability()
+        low_prob = self.low_probability()          # shape (clauses, features)
+        high_prob = self.high_probability()        # shape (clauses, features)
 
         # The reshape trick allows us to multiply the rows of a 2D matrix,
         # with the rows of the 1D clause_output.
@@ -297,6 +301,10 @@ class MultiClassTsetlinMachine:
         feedback_matrix = self.feedback_to_clauses.reshape(-1, 1)
         pos_feedback_matrix = (feedback_matrix > 0)
         neg_feedback_matrix = (feedback_matrix < 0)
+
+        assert low_prob.shape == (self.number_of_clauses, self.number_of_features)
+        assert clause_matrix.shape == (self.number_of_clauses, 1)
+
 
         # Vectorization -- this is essentially unreadable. It replaces
         # the commented out code just below it
@@ -733,7 +741,7 @@ class TsetlinMachine:
         self.automata[start: end] += pos_feedback_matrix * (low_delta + delta) + \
             neg_feedback_matrix * (clause_matrix * (1 - input) * (not_action_include))
 
-        self.automata[start: end] += pos_feedback_matrix * (low_delta + delta_neg) + \
+        self.inverting_automata[start: end] += pos_feedback_matrix * (low_delta + delta_neg) + \
             neg_feedback_matrix * clause_matrix * input * (not_action_include_negated)
 
 
