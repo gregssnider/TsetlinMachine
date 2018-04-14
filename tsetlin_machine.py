@@ -866,7 +866,7 @@ class TsetlinMachine:
         print('fb', feedback_to_clauses.shape, 'start', start)
 
 
-        
+
         ################################### END JUNK TEST
 
 
