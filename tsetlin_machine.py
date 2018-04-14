@@ -571,7 +571,7 @@ class TsetlinMachine:
 
         """
         assert isinstance(clause_outputs, ByteTensor)
-        assert clause_outputs.shape == (self.clause_count, 1)
+        assert clause_outputs.shape == (self.clause_count, )
 
         # We split the clauses into positive polarity and negative polarity,
         # then compute the polarity-weighted votes.
@@ -665,6 +665,7 @@ class TsetlinMachine:
         return torch.rand((rows, columns)) <= (self.s - 1.0) / self.s
 
 
+    ##################### DEFUNCT, GOING AWAY
     def _compute_feedback(self, target_class: int, votes: IntTensor,
                          is_anti_target: bool) -> IntTensor:
         """Compute feedback for a given target class
@@ -682,7 +683,7 @@ class TsetlinMachine:
         assert isinstance(votes, IntTensor)
         assert votes.shape == (self.class_count, ), str(votes.shape)
 
-        target_feedback = IntTensor(self.clause_count).zero_()
+        target_feedback = IntTensor(self.clauses_per_class).zero_()
         half = self.clauses_per_class // 2
         if is_anti_target:
             thresh = (1.0 / (self.threshold * 2)) * (
@@ -694,17 +695,19 @@ class TsetlinMachine:
         # The first half of target_feedback holds feedback flags for the
         # positive polarity clauses, the second half for negative polarity
         # clauses.
-        feedback_threshold = (torch.rand((self.clauses_per_class, )
-                                         <= thresh).int())
+        feedback_threshold = (torch.rand((self.clauses_per_class, )) <= thresh).int()
         start = 0
         mid = start + half
         end = start + self.clauses_per_class
         target_feedback[start : mid] += feedback_threshold[:half]
         target_feedback[mid : end] -= feedback_threshold[half:]
+
+        assert target_feedback.shape == (self.clauses_per_class, ), str(target_feedback.shape)
         return target_feedback
 
 
-    def _train_class(self, target_class: int, clause_outputs: ByteTensor,
+    ##################### DEFUNCT, GOING AWAY
+    def _train_class(self, input: ByteTensor, target_class: int, clause_outputs: ByteTensor,
                     feedback: IntTensor):
         """Train the automata and inverting_automata for a single class.
 
@@ -717,9 +720,9 @@ class TsetlinMachine:
 
         """
         assert isinstance(clause_outputs, ByteTensor)
-        assert clause_outputs.shape == (self.clauses_per_class, )
+        assert clause_outputs.shape == (self.clauses_per_class, ), str(clause_outputs.shape)
         assert isinstance(feedback, IntTensor)
-        assert clause_outputs.shape == feedback.shape
+        assert clause_outputs.shape == feedback.shape, str(feedback.shape)
 
         # We now train the non-inverting automata.
         low_prob = self._low_probability(self.clauses_per_class, self.feature_count)
@@ -737,15 +740,28 @@ class TsetlinMachine:
 
         # Vectorization -- this is essentially unreadable. It replaces
         # the commented out code just below it
-        low_delta = -(inv_clause_matrix * low_prob).char()
+        low_delta = -1 * (inv_clause_matrix * low_prob).byte()
+
         delta =  clause_matrix * (input * high_prob - (1-input) * low_prob)
-        delta_neg = clause_matrix * (-input * low_prob + (1 - input) * high_prob)
+        delta_neg = clause_matrix * (-1 * input * low_prob + (1 - input) * high_prob)
 
         not_action_include = (self.automata <= self.state_count)
         not_action_include_negated = (self.inverting_automata <= self.state_count)
 
         start = self.clauses_per_class * target_class
         end = start + self.clauses_per_class
+
+        # start junk --------------------------------
+        junk = pos_feedback_matrix * (low_delta + delta)
+        junk = neg_feedback_matrix * clause_matrix * input * not_action_include
+
+        # AHA! The problab is that not_action_include must be pared down for the
+        # class being trained.
+
+
+        # end junk --------------------------------
+
+
         self.automata[start: end] += pos_feedback_matrix * (low_delta + delta) + \
             neg_feedback_matrix * (clause_matrix * (1 - input) * (not_action_include))
 
@@ -755,6 +771,8 @@ class TsetlinMachine:
 
     def train(self, input: ByteTensor, target_class: int):
         """Train the machine with a single example.
+
+        Called 'update' in original code
 
         Args:
             input: 1D array of booleans.
@@ -768,33 +786,124 @@ class TsetlinMachine:
         # Randomly pick one of the other classes for pairwise learning.
         anti_target_class = target_class
         while anti_target_class == target_class:
-            anti_target_class = random.randint(0, self.class_count)
+            anti_target_class = np.random.randint(0, self.class_count)
+
+        assert anti_target_class < self.class_count
 
         ###############################
         ### Calculate Clause Output ###
         ###############################
         clause_outputs = self.evaluate_clauses(input)
+        assert clause_outputs.shape == (self.clause_count, )
 
         ###########################
         ### Sum up Clause Votes ###
         ###########################
         votes = self.sum_up_class_votes(clause_outputs)
+        assert votes.shape == (self.class_count, )
 
+        #####################################
+        ### Calculate Feedback to Clauses ###
+        #####################################
+
+        # Initialize feedback to clauses
+        feedback_to_clauses = IntTensor(self.clause_count).zero_()
+
+        # Process target
+        half = self.clauses_per_class // 2
+        thresh = (1.0 / (self.threshold * 2)) * (self.threshold - votes[target_class])
+        feedback_threshold = torch.rand((self.clauses_per_class, ))
+        feedback_threshold = (feedback_threshold <= thresh).int()
+        start = target_class * self.clauses_per_class
+        mid = start + self.clauses_per_class // 2
+        end = start + self.clauses_per_class
+        feedback_to_clauses[start : mid] += feedback_threshold[:half]
+        feedback_to_clauses[mid : end] -= feedback_threshold[half:]
+
+        # Process anti-target
+        thresh = (1.0 / (self.threshold * 2)) * (self.threshold + votes[target_class])
+        feedback_threshold = torch.rand((self.clauses_per_class, ))
+        feedback_threshold = (feedback_threshold <= thresh).int()
+        start = anti_target_class * self.clauses_per_class
+        mid = start + self.clauses_per_class // 2
+        end = start + self.clauses_per_class
+
+        feedback_to_clauses[start : mid] -= feedback_threshold[:half]
+        feedback_to_clauses[mid : end] += feedback_threshold[half:]
+
+        #################################
+        ### Train Individual Automata ###
+        #################################
+        low_prob = self._low_probability(self.clause_count, self.feature_count)
+        high_prob = self._high_probability(self.clause_count, self.feature_count)
+
+
+        # The reshape trick allows us to multiply the rows of a 2D matrix,
+        # with the rows of the 1D clause_output.
+        clause_matrix = clause_outputs.view(-1, 1)
+        inv_clause_matrix = clause_matrix ^ 1
+        feedback_matrix = feedback_to_clauses.view(-1, 1)
+        pos_feedback_matrix = (feedback_matrix > 0)
+        neg_feedback_matrix = (feedback_matrix < 0)
+
+        assert low_prob.shape == (self.clause_count, self.feature_count)
+        assert clause_matrix.shape == (self.clause_count, 1)
+
+        # Vectorization -- this is essentially unreadable. It replaces
+        # the commented out code just below it
+        low_delta = inv_clause_matrix * (-1 * low_prob)
+        delta =  clause_matrix * (input * high_prob - (1-input) * low_prob)
+        delta_neg = clause_matrix * (-1 * input * low_prob + (1 - input) * high_prob)
+
+        not_action_include = (self.automata <= self.state_count)
+        not_action_include_negated = (
+                    self.inverting_automata <= self.state_count)
+
+
+        ################################### JUNK TEST
+        print('class_count', self.class_count)
+        print('anti target class', anti_target_class, 'clauses per class', self.clauses_per_class)
+        print('fb', feedback_to_clauses.shape, 'start', start)
+
+
+        
+        ################################### END JUNK TEST
+
+
+
+        self.automata += pos_feedback_matrix * (low_delta + delta) + \
+            neg_feedback_matrix * (clause_matrix * (1 - input) * (not_action_include))
+
+        self.inverting_automata += pos_feedback_matrix * (low_delta + delta_neg) + \
+            neg_feedback_matrix * clause_matrix * input * (not_action_include_negated)
+
+
+        '''
         ###########################
         # Train automata for target class
         ###########################
         target_feedback = self._compute_feedback(target_class, votes,
                                                 is_anti_target=False)
-        self._train_class(target_class, clause_outputs, target_feedback)
+        print(target_feedback.shape)
+        assert target_feedback.shape == (self.clauses_per_class, ), str(target_feedback.shape)
+
+
+        start = target_class * self.clauses_per_class
+        end = start + self.clauses_per_class
+        self._train_class(input, target_class, clause_outputs[start : end], target_feedback)
 
         ###########################
         # Train automata for anti-target class
         ###########################
         anti_target_feedback = self._compute_feedback(anti_target_class, votes,
                                                      is_anti_target=True)
-        self._train_class(anti_target_class, clause_outputs, target_feedback)
 
+        start = anti_target_class * self.clauses_per_class
+        end = start + self.clauses_per_class
+        self._train_class(input, anti_target_class, clause_outputs[start : end], anti_target_feedback)
+        '''
         self.automata.clamp(1, 2 * self.state_count)
+        self.inverting_automata.clamp(1, 2 * self.state_count)
         self.update_action()
 
     def fit(self, X: np.ndarray, y: np.ndarray, number_of_examples, epochs=100):
@@ -807,25 +916,25 @@ class TsetlinMachine:
             epochs: Number of training epochs.
         """
         assert len(X.shape) == 2 and len(y.shape) == 1
-        assert X.shape[0] == y.shape[0]
+        assert X.shape[0] == y.shape[0] == number_of_examples
         assert X.shape[1] == self.feature_count
 
         # Convert input arrays to tensors.
-        X = torch.from_numpy(X.astype(np.uint8)).char()
-        y = torch.from_numpy(y.astype(np.uint8)).char()
+        X = torch.from_numpy(X.astype(np.uint8))
+        y = torch.from_numpy(y.astype(np.uint8))
 
-        Xi = ByteTensor(self.feature_count).zero_()
+        assert isinstance(X, ByteTensor)
+        assert isinstance(y, ByteTensor)
+
         random_index = np.arange(number_of_examples)
         for epoch in range(epochs):
             np.random.shuffle(random_index)
             for i in range(number_of_examples):
                 example_id = random_index[i]
                 target_class = y[example_id]
-                for j in range(self.feature_count):
-                    Xi[j] = X[example_id, j]
+                Xi = X[example_id]
                 self.train(Xi, target_class)
         return
-
 
 
 if __name__ == '__main__':
