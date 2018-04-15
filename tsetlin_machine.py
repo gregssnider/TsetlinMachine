@@ -500,9 +500,9 @@ class TsetlinMachine:
         # state_count or state_count + 1
         shape = (clause_count, feature_count)
         initial_state = np.random.randint(state_count, state_count + 2, shape)
-        self.automata = torch.from_numpy(initial_state)
+        self.automata = torch.from_numpy(initial_state).int()
         initial_state = np.random.randint(state_count, state_count + 2, shape)
-        self.inverting_automata = torch.from_numpy(initial_state)
+        self.inverting_automata = torch.from_numpy(initial_state).int()
 
         self.action = self.automata > self.state_count
         self.inverting_action = self.inverting_automata > self.state_count
@@ -597,7 +597,7 @@ class TsetlinMachine:
             class_votes.append(sum)
         return IntTensor(class_votes)
 
-    def predict(self, input: ByteTensor) -> IntTensor:
+    def predict(self, input: ByteTensor) -> int:
         """Forward inference of input.
 
         Args:
@@ -612,9 +612,9 @@ class TsetlinMachine:
         clause_outputs = self.evaluate_clauses(input)
         class_votes = self.sum_up_class_votes(clause_outputs)
         value, index = torch.max(class_votes, 0)
-        return index
+        return index[0]
 
-    def evaluate(self, inputs: ByteTensor, targets: IntTensor) -> float:
+    def evaluate(self, inputs: np.ndarray, targets: np.ndarray, notused) -> float:
         """Evaluate the machine on a dataset.
 
         Args:
@@ -624,6 +624,8 @@ class TsetlinMachine:
         Returns:
             Classification accuracy of the machine.
         """
+        inputs = torch.from_numpy(inputs.astype(np.uint8)).byte()
+        targets = torch.from_numpy(targets.astype(np.uint8)).int()
         assert isinstance(inputs, ByteTensor)
         assert inputs.shape[1] == self.feature_count
         assert isinstance(targets, IntTensor)
@@ -634,12 +636,10 @@ class TsetlinMachine:
         for i in range(examples):
             if i % 100 == 0:
                 print('.', end='', flush=True)
-            input = torch.from_numpy(inputs[i]).byte()
-            target = np.zeros((1, ), dtype=np.int32)
-            target[0] = targets[i]
-            target = torch.from_numpy(target)
-            prediction = self.predict(input).int()
-            if not prediction.equal(target):
+            input = inputs[i]
+            target = targets[i]
+            prediction = self.predict(input)
+            if prediction != target:
                 errors += 1
         accuracy = (examples - errors) / examples
         return accuracy
@@ -859,23 +859,11 @@ class TsetlinMachine:
         not_action_include_negated = (
                     self.inverting_automata <= self.state_count)
 
+        self.automata += (pos_feedback_matrix * (low_delta + delta) + \
+            neg_feedback_matrix * (clause_matrix * (1 - input) * (not_action_include))).int()
 
-        ################################### JUNK TEST
-        print('class_count', self.class_count)
-        print('anti target class', anti_target_class, 'clauses per class', self.clauses_per_class)
-        print('fb', feedback_to_clauses.shape, 'start', start)
-
-
-
-        ################################### END JUNK TEST
-
-
-
-        self.automata += pos_feedback_matrix * (low_delta + delta) + \
-            neg_feedback_matrix * (clause_matrix * (1 - input) * (not_action_include))
-
-        self.inverting_automata += pos_feedback_matrix * (low_delta + delta_neg) + \
-            neg_feedback_matrix * clause_matrix * input * (not_action_include_negated)
+        self.inverting_automata += (pos_feedback_matrix * (low_delta + delta_neg) + \
+            neg_feedback_matrix * clause_matrix * input * (not_action_include_negated)).int()
 
 
         '''
@@ -927,7 +915,9 @@ class TsetlinMachine:
         assert isinstance(y, ByteTensor)
 
         random_index = np.arange(number_of_examples)
+        print()
         for epoch in range(epochs):
+            print('\r epoch', epoch, end='', flush=True)
             np.random.shuffle(random_index)
             for i in range(number_of_examples):
                 example_id = random_index[i]
