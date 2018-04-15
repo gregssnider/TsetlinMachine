@@ -21,6 +21,7 @@ def rand():
 spec = [
     ('class_count', int32),
     ('clauses_count', int32),
+    ('clauses_per_class', int32),
     ('feature_count', int32),
     ('s', float64),
     ('state_count', int32),
@@ -55,6 +56,7 @@ class MultiClassTsetlinMachine:
 
         self.class_count = class_count
         self.clauses_count = clauses_count
+        self.clauses_per_class = clauses_count // class_count
         self.feature_count = feature_count
         self.state_count = state_count
         self.s = s
@@ -136,7 +138,7 @@ class MultiClassTsetlinMachine:
         for target_class in range(self.class_count):
             self.class_sum[target_class] = 0
 
-            for j in range(self.clause_count[target_class]):
+            for j in range(self.clauses_per_class):
                 global_clause_index = self.global_clause_index[target_class, j]
                 self.class_sum[target_class] += \
                     self.clause_output[global_clause_index] * \
@@ -231,7 +233,7 @@ class MultiClassTsetlinMachine:
             boolean array of shape [clauses, features]
         """
         return (np.random.random(
-            (self.clauses_count, self.feature_count)) \
+            (self.clauses_count, self.feature_count))
                 <= 1.0 / self.s).astype(np.int8)
 
     def high_probability(self):
@@ -241,7 +243,7 @@ class MultiClassTsetlinMachine:
             boolean array of shape [clauses, features]
         """
         return (np.random.random(
-            (self.clauses_count, self.feature_count)) \
+            (self.clauses_count, self.feature_count))
                 <= (self.s - 1.0) / self.s).astype(np.int8)
 
     def update(self, X, target_class):
@@ -272,29 +274,27 @@ class MultiClassTsetlinMachine:
         self.feedback_to_clauses = np.zeros_like(self.feedback_to_clauses)
 
         # Process target
-        clauses_in_class = self.clause_count[target_class]
-        half = clauses_in_class // 2
-        feedback_threshold = np.random.random((clauses_in_class,))
+        half = self.clauses_per_class // 2
+        feedback_threshold = np.random.random((self.clauses_per_class,))
         feedback_threshold = feedback_threshold <= (
                     1.0 / (self.threshold * 2)) * \
                              (self.threshold - self.class_sum[target_class])
         start = self.global_clause_index[target_class, 0]
-        mid = start + clauses_in_class // 2
-        end = start + clauses_in_class
+        mid = start + self.clauses_per_class // 2
+        end = start + self.clauses_per_class
         self.feedback_to_clauses[start: mid] += feedback_threshold[:half]
         self.feedback_to_clauses[mid: end] -= feedback_threshold[half:]
 
         # Process negative target
-        clauses_in_class = self.clause_count[negative_target_class]
-        half = clauses_in_class // 2
-        feedback_threshold = np.random.random((clauses_in_class,))
+        half = self.clauses_per_class // 2
+        feedback_threshold = np.random.random((self.clauses_per_class,))
         feedback_threshold = feedback_threshold <= (
                     1.0 / (self.threshold * 2)) * \
                              (self.threshold + self.class_sum[
                                  negative_target_class])
         start = self.global_clause_index[negative_target_class, 0]
-        mid = start + clauses_in_class // 2
-        end = start + clauses_in_class
+        mid = start + self.clauses_per_class // 2
+        end = start + self.clauses_per_class
         self.feedback_to_clauses[start: mid] -= feedback_threshold[:half]
         self.feedback_to_clauses[mid: end] += feedback_threshold[half:]
 
