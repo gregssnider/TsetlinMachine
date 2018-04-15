@@ -19,15 +19,15 @@ def rand():
 ########################################
 
 spec = [
-    ('number_of_classes', int32),
-    ('number_of_clauses', int32),
-    ('number_of_features', int32),
+    ('class_count', int32),
+    ('clauses_count', int32),
+    ('feature_count', int32),
     ('s', float64),
-    ('number_of_states', int32),
-    ('ta_state', int32[:, :]),  # indices: [clause, feature]
-    ('ta_state_neg', int32[:, :]),  # indices: [clause, feature]
+    ('state_count', int32),
+    ('automata', int32[:, :]),  # indices: [clause, feature]
+    ('inverting_automata', int32[:, :]),  # indices: [clause, feature]
     ('action', int8[:, :]),  # indices: [clause, feature]
-    ('action_neg', int8[:, :]),  # indices: [clause, feature]
+    ('inverting_action', int8[:, :]),  # indices: [clause, feature]
     ('clause_count', int32[:]),  # index: [class]
     ('clause_sign', int32[:, :]),  # indices: [class, clause]
     ('global_clause_index', int32[:, :]),  # indices: [class, feature]
@@ -50,44 +50,44 @@ class MultiClassTsetlinMachine:
 
         # Initialization of the Tsetlin Machine
 
-    def __init__(self, number_of_classes, number_of_clauses, number_of_features,
-                 number_of_states, s, threshold):
+    def __init__(self, class_count, clauses_count, feature_count,
+                 state_count, s, threshold):
 
-        self.number_of_classes = number_of_classes
-        self.number_of_clauses = number_of_clauses
-        self.number_of_features = number_of_features
-        self.number_of_states = number_of_states
+        self.class_count = class_count
+        self.clauses_count = clauses_count
+        self.feature_count = feature_count
+        self.state_count = state_count
         self.s = s
         self.threshold = threshold
 
-        # The state of each Tsetlin Automaton is stored here. The automata are randomly initialized to either 'number_of_states' or 'number_of_states' + 1.
-        self.ta_state = np.random.choice(
-            np.array([number_of_states, number_of_states + 1]),
-            size=(number_of_clauses, number_of_features)).astype(np.int32)
-        self.ta_state_neg = np.random.choice(
-            np.array([number_of_states, number_of_states + 1]),
-            size=(number_of_clauses, number_of_features)).astype(np.int32)
-        self.action = np.zeros((number_of_clauses, number_of_features),
+        # The state of each Tsetlin Automaton is stored here. The automata are randomly initialized to either 'state_count' or 'state_count' + 1.
+        self.automata = np.random.choice(
+            np.array([state_count, state_count + 1]),
+            size=(clauses_count, feature_count)).astype(np.int32)
+        self.inverting_automata = np.random.choice(
+            np.array([state_count, state_count + 1]),
+            size=(clauses_count, feature_count)).astype(np.int32)
+        self.action = np.zeros((clauses_count, feature_count),
                                dtype=np.int8)
-        self.action_neg = np.zeros((number_of_clauses, number_of_features),
+        self.inverting_action = np.zeros((clauses_count, feature_count),
                                    dtype=np.int8)
 
         # Data structures for keeping track of which clause refers to which class, and the sign of the clause
-        self.clause_count = np.zeros((number_of_classes,), dtype=np.int32)
-        self.clause_sign = np.zeros((number_of_classes, number_of_clauses),
+        self.clause_count = np.zeros((class_count,), dtype=np.int32)
+        self.clause_sign = np.zeros((class_count, clauses_count),
                                     dtype=np.int32)
-        self.global_clause_index = np.zeros((number_of_classes,
-                                             number_of_clauses), dtype=np.int32)
+        self.global_clause_index = np.zeros((class_count,
+                                             clauses_count), dtype=np.int32)
 
         # Data structures for intermediate calculations (clause output, summation of votes, and feedback to clauses)
-        self.clause_output = np.zeros(shape=(number_of_clauses,), dtype=np.int8)
-        self.class_sum = np.zeros(shape=(number_of_classes,), dtype=np.int32)
-        self.feedback_to_clauses = np.zeros(shape=(number_of_clauses),
+        self.clause_output = np.zeros(shape=(clauses_count,), dtype=np.int8)
+        self.class_sum = np.zeros(shape=(class_count,), dtype=np.int32)
+        self.feedback_to_clauses = np.zeros(shape=(clauses_count),
                                             dtype=np.int32)
 
         # Set up the Tsetlin Machine structure
-        for i in range(number_of_classes):
-            clauses_per_class = number_of_clauses // number_of_classes
+        for i in range(class_count):
+            clauses_per_class = clauses_count // class_count
             for j in range(clauses_per_class):
                 self.global_clause_index[i, self.clause_count[i]] = \
                     i * (clauses_per_class) + j
@@ -103,18 +103,18 @@ class MultiClassTsetlinMachine:
         self.update_action()
 
     def update_action(self):
-        self.action = (self.ta_state > self.number_of_states)
-        self.action_neg = (self.ta_state_neg > self.number_of_states)
+        self.action = (self.automata > self.state_count)
+        self.inverting_action = (self.inverting_automata > self.state_count)
 
     # Calculate the output of each clause using the actions of each Tsetline Automaton.
     # Output is stored an internal output array.
     def calculate_clause_output(self, X):
 
-        for j in range(self.number_of_clauses):
+        for j in range(self.clauses_count):
             self.clause_output[j] = 1
-            for k in range(self.number_of_features):
+            for k in range(self.feature_count):
                 action_include = self.action[j, k]
-                action_include_negated = self.action_neg[j, k]
+                action_include_negated = self.inverting_action[j, k]
 
                 if (action_include == 1 and X[k] == 0) or \
                         (action_include_negated == 1 and X[k] == 1):
@@ -125,15 +125,15 @@ class MultiClassTsetlinMachine:
         # with the rows of the 1D clause_output.
         input_matrix = X.reshape(-1, 1)
         input_matrix_neg = input_matrix ^ 1 & input_matrix
-        self.clause_output = self.action_neg.astype(np.int8)
-        #self.clause_output = (self.action_neg + input_matrix).astype(np.int8) #* \
+        self.clause_output = self.inverting_action.astype(np.int8)
+        #self.clause_output = (self.inverting_action + input_matrix).astype(np.int8) #* \
         #                     (self.action + input_matrix_neg)
 
         '''
 
     # Sum up the votes for each class (this is the multiclass version of the Tsetlin Machine)
     def sum_up_class_votes(self):
-        for target_class in range(self.number_of_classes):
+        for target_class in range(self.class_count):
             self.class_sum[target_class] = 0
 
             for j in range(self.clause_count[target_class]):
@@ -170,7 +170,7 @@ class MultiClassTsetlinMachine:
 
         max_class_sum = self.class_sum[0]
         max_class = 0
-        for target_class in range(1, self.number_of_classes):
+        for target_class in range(1, self.class_count):
             if max_class_sum < self.class_sum[target_class]:
                 max_class_sum = self.class_sum[target_class]
                 max_class = target_class
@@ -182,8 +182,8 @@ class MultiClassTsetlinMachine:
     ############################################
 
     def evaluate(self, X, y, number_of_examples):
-        number_of_features = self.ta_state.shape[1]
-        Xi = np.zeros((number_of_features,)).astype(np.int32)
+        feature_count = self.automata.shape[1]
+        Xi = np.zeros((feature_count,)).astype(np.int32)
 
         errors = 0
         for l in range(number_of_examples):
@@ -191,7 +191,7 @@ class MultiClassTsetlinMachine:
             ### Calculate Clause Output ###
             ###############################
 
-            for j in range(self.number_of_features):
+            for j in range(self.feature_count):
                 Xi[j] = X[l, j]
             self.calculate_clause_output(Xi)
 
@@ -207,7 +207,7 @@ class MultiClassTsetlinMachine:
 
             max_class_sum = self.class_sum[0]
             max_class = 0
-            for target_class in range(1, self.number_of_classes):
+            for target_class in range(1, self.class_count):
                 if max_class_sum < self.class_sum[target_class]:
                     max_class_sum = self.class_sum[target_class]
                     max_class = target_class
@@ -231,7 +231,7 @@ class MultiClassTsetlinMachine:
             boolean array of shape [clauses, features]
         """
         return (np.random.random(
-            (self.number_of_clauses, self.number_of_features)) \
+            (self.clauses_count, self.feature_count)) \
                 <= 1.0 / self.s).astype(np.int8)
 
     def high_probability(self):
@@ -241,7 +241,7 @@ class MultiClassTsetlinMachine:
             boolean array of shape [clauses, features]
         """
         return (np.random.random(
-            (self.number_of_clauses, self.number_of_features)) \
+            (self.clauses_count, self.feature_count)) \
                 <= (self.s - 1.0) / self.s).astype(np.int8)
 
     def update(self, X, target_class):
@@ -250,7 +250,7 @@ class MultiClassTsetlinMachine:
         negative_target_class = target_class
         while negative_target_class == target_class:
             negative_target_class = random.randint(0,
-                                                   self.number_of_classes - 1)
+                                                   self.class_count - 1)
 
         ###############################
         ### Calculate Clause Output ###
@@ -314,8 +314,8 @@ class MultiClassTsetlinMachine:
         neg_feedback_matrix = (feedback_matrix < 0)
 
         assert low_prob.shape == (
-        self.number_of_clauses, self.number_of_features)
-        assert clause_matrix.shape == (self.number_of_clauses, 1)
+        self.clauses_count, self.feature_count)
+        assert clause_matrix.shape == (self.clauses_count, 1)
 
         # Vectorization -- this is essentially unreadable. It replaces
         # the commented out code just below it
@@ -323,20 +323,20 @@ class MultiClassTsetlinMachine:
         delta = clause_matrix * (X * high_prob - (1 - X) * low_prob)
         delta_neg = clause_matrix * (-X * low_prob + (1 - X) * high_prob)
 
-        not_action_include = (self.ta_state <= self.number_of_states)
+        not_action_include = (self.automata <= self.state_count)
         not_action_include_negated = (
-                self.ta_state_neg <= self.number_of_states)
+                self.inverting_automata <= self.state_count)
 
-        self.ta_state += pos_feedback_matrix * (low_delta + delta) + \
+        self.automata += pos_feedback_matrix * (low_delta + delta) + \
                          neg_feedback_matrix * (clause_matrix * (1 - X) * (
             not_action_include))
 
-        self.ta_state_neg += pos_feedback_matrix * (low_delta + delta_neg) + \
+        self.inverting_automata += pos_feedback_matrix * (low_delta + delta_neg) + \
                              neg_feedback_matrix * clause_matrix * X * (
                                  not_action_include_negated)
 
         '''
-        for j in range(self.number_of_clauses):
+        for j in range(self.clauses_count):
             if self.feedback_to_clauses[j] > 0:
                 ####################################################
                 ### Type I Feedback (Combats False Negatives) ###
@@ -347,8 +347,8 @@ class MultiClassTsetlinMachine:
                 delta = clause_matrix[j] * (X * high_prob[j] - (1-X) * low_prob[j])
                 delta_neg = clause_matrix[j] * (
                             -X * low_prob[j] + (1 - X) * high_prob[j])
-                self.ta_state[j] += low_delta + delta
-                self.ta_state_neg[j] += low_delta + delta_neg
+                self.automata[j] += low_delta + delta
+                self.inverting_automata[j] += low_delta + delta_neg
 
             elif self.feedback_to_clauses[j] < 0:
                 #####################################################
@@ -356,38 +356,38 @@ class MultiClassTsetlinMachine:
                 #####################################################
 
                 # First do this by rows (clauses)
-                action_include = (self.ta_state[j] > self.number_of_states).astype(np.int32)
-                action_include_negated = (self.ta_state_neg[j] > self.number_of_states).astype(np.int32)
-                self.ta_state[j] += clause_matrix[j] * (1 - X) * (1 - action_include)
-                self.ta_state_neg[j] += clause_matrix[j] * X * (1 - action_include_negated)
+                action_include = (self.automata[j] > self.state_count).astype(np.int32)
+                action_include_negated = (self.inverting_automata[j] > self.state_count).astype(np.int32)
+                self.automata[j] += clause_matrix[j] * (1 - X) * (1 - action_include)
+                self.inverting_automata[j] += clause_matrix[j] * X * (1 - action_include_negated)
         '''
 
         self.clamp_automata()
         self.update_action()
 
     def clamp_automata(self):
-        """Clamp all automata states to the range[1, 2*number_of_states]."""
+        """Clamp all automata states to the range[1, 2*state_count]."""
         '''
         # np.clip not supported by jit
         smallest = 1
-        biggest = self.number_of_states * 2
-        np.clip(self.ta_state, smallest, biggest, self.ta_state)
-        np.clip(self.ta_state_neg, smallest, biggest, self.ta_state_neg)
+        biggest = self.state_count * 2
+        np.clip(self.automata, smallest, biggest, self.automata)
+        np.clip(self.inverting_automata, smallest, biggest, self.inverting_automata)
         '''
-        for j in range(self.number_of_clauses):
-            for k in range(self.number_of_features):
-                self.ta_state[j, k] = max(
-                    min(self.ta_state[j, k], self.number_of_states * 2), 1)
-                self.ta_state_neg[j, k] = max(
-                    min(self.ta_state_neg[j, k], self.number_of_states * 2), 1)
+        for j in range(self.clauses_count):
+            for k in range(self.feature_count):
+                self.automata[j, k] = max(
+                    min(self.automata[j, k], self.state_count * 2), 1)
+                self.inverting_automata[j, k] = max(
+                    min(self.inverting_automata[j, k], self.state_count * 2), 1)
 
     ##############################################
     ### Batch Mode Training of Tsetlin Machine ###
     ##############################################
 
     def fit(self, X, y, number_of_examples, epochs=100):
-        number_of_features = self.ta_state.shape[1]
-        Xi = np.zeros((number_of_features,)).astype(np.int32)
+        feature_count = self.automata.shape[1]
+        Xi = np.zeros((feature_count,)).astype(np.int32)
 
         random_index = np.arange(number_of_examples)
 
@@ -398,7 +398,7 @@ class MultiClassTsetlinMachine:
                 example_id = random_index[i]
                 target_class = y[example_id]
 
-                for j in range(self.number_of_features):
+                for j in range(self.feature_count):
                     Xi[j] = X[example_id, j]
                 self.update(Xi, target_class)
         return
@@ -408,12 +408,12 @@ if __name__ == '__main__':
     # Parameters for the Tsetlin Machine
     T = 15
     s = 3.9
-    number_of_clauses = 20
+    clauses_count = 20
     states = 100
 
     # Parameters of the pattern recognition problem
-    number_of_features = 12
-    number_of_classes = 2
+    feature_count = 12
+    class_count = 2
 
     # Training configuration
     epochs = 200
@@ -432,7 +432,7 @@ if __name__ == '__main__':
     for step in range(steps):
         start_time = time.time()
         tsetlin_machine = MultiClassTsetlinMachine(
-            number_of_classes, number_of_clauses, number_of_features, states, s,
+            class_count, clauses_count, feature_count, states, s,
             T)
         tsetlin_machine.fit(X_training, y_training, y_training.shape[0], epochs)
         elapsed_time = time.time() - start_time
