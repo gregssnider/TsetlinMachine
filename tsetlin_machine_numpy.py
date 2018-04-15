@@ -246,6 +246,11 @@ class MultiClassTsetlinMachine:
             (self.clauses_count, self.feature_count))
                 <= (self.s - 1.0) / self.s).astype(np.int8)
 
+    def clause_index(self, target_class: int, clause: int, pos_polarity: bool):
+        index = target_class * (self.clauses_per_class // 2) + clause
+        if not pos_polarity:
+            index += self.clauses_count // 2
+
     def update(self, X, target_class):
 
         # Randomly pick one of the other classes, for pairwise learning of class output
