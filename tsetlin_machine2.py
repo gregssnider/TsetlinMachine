@@ -219,14 +219,6 @@ class TsetlinMachine2:
         clause_outputs = clause_outputs.view(2, self.class_count, -1)
         positive = clause_outputs[0].int()
         negative = clause_outputs[1].int()
-
-
-        print('-----------pos')
-        print(positive)
-        print('-----------neg')
-        print(negative)
-
-
         votes = positive - negative   # shape = (classes, clauses_per_class // 2)
 
         # The votes are spread evenly across the classes.
@@ -234,24 +226,6 @@ class TsetlinMachine2:
 
         ########################################## Do we need this clamp ?????????????
         class_votes = torch.clamp(class_votes, -self.threshold, self.threshold)
-
-        '''
-        votes_per_class = votes.shape[0] // self.class_count
-        class_votes = []
-        offset = 0
-        for c in range(self.class_count):
-            subvotes = votes[offset : offset + votes_per_class]
-            sum = torch.sum(subvotes)
-
-            # Not clear how the following block helps
-            if sum > self.threshold:
-                sum = self.threshold
-            elif sum < -self.threshold:
-                sum = -self.threshold
-
-            class_votes.append(sum)
-        return IntTensor(class_votes)
-        '''
         assert class_votes.shape == (self.class_count, )
         return class_votes
 
