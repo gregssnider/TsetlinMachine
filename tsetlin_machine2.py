@@ -98,6 +98,9 @@ class TsetlinMachine2:
     """
     def __init__(self, class_count: int, clause_count: int, feature_count: int,
                  states: int, s, threshold):
+        if clause_count % (2 * class_count) != 0:
+            raise ValueError("# clauses must be a multiple of (2 * # classes)")
+
         self.class_count = class_count
         self.clause_count = clause_count
         self.feature_count = feature_count
@@ -108,14 +111,14 @@ class TsetlinMachine2:
         self.clauses_per_class = clause_count // class_count
 
         # Automata and action tensors are 2D, indexed by:
-        #    clause index
         #    polarity   (0 => positive, 1 => negative)
+        #    class index
         #    class_clauses per polarity
         #    input feature index
         #
         polarities = 2
-        clause_shape = (class_count, polarities, self.clauses_per_class // 2, feature_count)
-        action_shape = (clause_count, feature_count)
+        clause_shape = (polarities, class_count,
+                        self.clauses_per_class // polarities, feature_count)
 
         self.automata = IntTensor(*clause_shape).random_(states, states + 2)
         self.inv_automata = IntTensor(*clause_shape).random_(states, states + 2)
@@ -206,14 +209,33 @@ class TsetlinMachine2:
         assert isinstance(clause_outputs, ByteTensor)
         assert clause_outputs.shape == (self.clause_count, )
 
+
+        ##### (polarity, class, clause_in_half_class, feature)
+
         # We split the clauses into positive polarity and negative polarity,
         # then compute the polarity-weighted votes.
-        clauses = clause_outputs.shape[0]
-        positive = clause_outputs[0 : clauses // 2]
-        negative = clause_outputs[clauses//2 :]
-        votes = positive - negative
+        #
+        # clause_outputs.shape = (2, classes, clauses_per_class // 2)
+        clause_outputs = clause_outputs.view(2, self.class_count, -1)
+        positive = clause_outputs[0].int()
+        negative = clause_outputs[1].int()
+
+
+        print('-----------pos')
+        print(positive)
+        print('-----------neg')
+        print(negative)
+
+
+        votes = positive - negative   # shape = (classes, clauses_per_class // 2)
 
         # The votes are spread evenly across the classes.
+        class_votes = torch.sum(votes, dim=1)
+
+        ########################################## Do we need this clamp ?????????????
+        class_votes = torch.clamp(class_votes, -self.threshold, self.threshold)
+
+        '''
         votes_per_class = votes.shape[0] // self.class_count
         class_votes = []
         offset = 0
@@ -229,6 +251,9 @@ class TsetlinMachine2:
 
             class_votes.append(sum)
         return IntTensor(class_votes)
+        '''
+        assert class_votes.shape == (self.class_count, )
+        return class_votes
 
     def predict(self, input: ByteTensor) -> int:
         """Forward inference of input.
