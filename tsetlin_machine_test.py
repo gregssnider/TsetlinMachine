@@ -1,16 +1,19 @@
 import numpy as np
 import torch
 from torch import ByteTensor, IntTensor
-from tsetlin_machine import TsetlinMachine
+from tsetlin_machine import TsetlinMachine#
+from tsetlin_machine2 import TsetlinMachine2
 
 
 def test_constructor():
-    machine = TsetlinMachine(class_count=10, clause_count=300,
-                             feature_count=28 * 28, state_count=100,
+    machine = TsetlinMachine2(class_count=10, clause_count=300,
+                             feature_count=28 * 28, states=100,
                              s=3.9, threshold=15)
-    automata_shape = (machine.clause_count, machine.feature_count)
+    automata_shape = (machine.class_count, 2,
+                      machine.clause_count // machine.class_count // 2,
+                      machine.feature_count)
     assert machine.automata.shape == automata_shape
-    assert machine.inverting_automata.shape == automata_shape
+    assert machine.inv_automata.shape == automata_shape
 
 
 def calculate_clause_output(machine: TsetlinMachine, input: ByteTensor):
