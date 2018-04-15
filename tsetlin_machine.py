@@ -665,110 +665,6 @@ class TsetlinMachine:
         return torch.rand((rows, columns)) <= (self.s - 1.0) / self.s
 
 
-    ##################### DEFUNCT, GOING AWAY
-    def _compute_feedback(self, target_class: int, votes: IntTensor,
-                         is_anti_target: bool) -> IntTensor:
-        """Compute feedback for a given target class
-
-        Args:
-            target_class: The class to be trained .
-            votes (1D tensor): Votes for each class.
-
-        Returns:
-            tensor of shape (clauses_per_class, ) holding raw feedback. The
-                first half of the array holds feedback for the automata and
-                holds 0's and 1's. The second half holds feedback for the
-                inverting automata and holds 0's and -1's.
-        """
-        assert isinstance(votes, IntTensor)
-        assert votes.shape == (self.class_count, ), str(votes.shape)
-
-        target_feedback = IntTensor(self.clauses_per_class).zero_()
-        half = self.clauses_per_class // 2
-        if is_anti_target:
-            thresh = (1.0 / (self.threshold * 2)) * (
-                        self.threshold + votes[target_class])
-        else:
-            thresh = (1.0 / (self.threshold * 2)) * (
-                        self.threshold - votes[target_class])
-
-        # The first half of target_feedback holds feedback flags for the
-        # positive polarity clauses, the second half for negative polarity
-        # clauses.
-        feedback_threshold = (torch.rand((self.clauses_per_class, )) <= thresh).int()
-        start = 0
-        mid = start + half
-        end = start + self.clauses_per_class
-        target_feedback[start : mid] += feedback_threshold[:half]
-        target_feedback[mid : end] -= feedback_threshold[half:]
-
-        assert target_feedback.shape == (self.clauses_per_class, ), str(target_feedback.shape)
-        return target_feedback
-
-
-    ##################### DEFUNCT, GOING AWAY
-    def _train_class(self, input: ByteTensor, target_class: int, clause_outputs: ByteTensor,
-                    feedback: IntTensor):
-        """Train the automata and inverting_automata for a single class.
-
-        Args:
-            target_class: The index of the class to be trained.
-            clause_outputs: 1D array of outputs of the clauses for
-                target_class, one entry for each clause.
-            feedback: 1D array of feedback flags (0, 1, -1) for target_class,
-                one entry for each clause of that class.
-
-        """
-        assert isinstance(clause_outputs, ByteTensor)
-        assert clause_outputs.shape == (self.clauses_per_class, ), str(clause_outputs.shape)
-        assert isinstance(feedback, IntTensor)
-        assert clause_outputs.shape == feedback.shape, str(feedback.shape)
-
-        # We now train the non-inverting automata.
-        low_prob = self._low_probability(self.clauses_per_class, self.feature_count)
-        high_prob = self._high_probability(self.clauses_per_class, self.feature_count)
-
-        # The reshape/view trick allows us to multiply the rows of a 2D matrix,
-        # with the rows of the 1D clause_output.
-
-        # Need to do expand_as rather than view here....
-
-        clause_matrix = clause_outputs.view(-1, 1)
-        inv_clause_matrix = clause_matrix ^ 1
-        pos_feedback_matrix = (feedback > 0).view(-1, 1)
-        neg_feedback_matrix = (feedback < 0).view(-1, 1)
-
-        # Vectorization -- this is essentially unreadable. It replaces
-        # the commented out code just below it
-        low_delta = -1 * (inv_clause_matrix * low_prob).byte()
-
-        delta =  clause_matrix * (input * high_prob - (1-input) * low_prob)
-        delta_neg = clause_matrix * (-1 * input * low_prob + (1 - input) * high_prob)
-
-        not_action_include = (self.automata <= self.state_count)
-        not_action_include_negated = (self.inverting_automata <= self.state_count)
-
-        start = self.clauses_per_class * target_class
-        end = start + self.clauses_per_class
-
-        # start junk --------------------------------
-        junk = pos_feedback_matrix * (low_delta + delta)
-        junk = neg_feedback_matrix * clause_matrix * input * not_action_include
-
-        # AHA! The problab is that not_action_include must be pared down for the
-        # class being trained.
-
-
-        # end junk --------------------------------
-
-
-        self.automata[start: end] += pos_feedback_matrix * (low_delta + delta) + \
-            neg_feedback_matrix * (clause_matrix * (1 - input) * (not_action_include))
-
-        self.inverting_automata[start: end] += pos_feedback_matrix * (low_delta + delta_neg) + \
-            neg_feedback_matrix * clause_matrix * input * (not_action_include_negated)
-
-
     def train(self, input: ByteTensor, target_class: int):
         """Train the machine with a single example.
 
@@ -954,12 +850,12 @@ if __name__ == '__main__':
     steps = 50
     for step in range(steps):
         start_time = time.time()
-        '''
         tsetlin_machine = MultiClassTsetlinMachine(
             number_of_classes, number_of_clauses, number_of_features, states, s, T)
         '''
         tsetlin_machine = TsetlinMachine(
             number_of_classes, number_of_clauses, number_of_features, states, s, T)
+        '''
         tsetlin_machine.fit(X_training, y_training, y_training.shape[0], epochs)
         elapsed_time = time.time() - start_time
         accuracy = tsetlin_machine.evaluate(X_test, y_test, y_test.shape[0])
