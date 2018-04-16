@@ -110,7 +110,7 @@ class TsetlinMachine2:
 
         self.clauses_per_class = clause_count // class_count
 
-        # Automata and action tensors are 2D, indexed by:
+        # Automata and action tensors are 4D, indexed by:
         #    polarity   (0 => positive, 1 => negative)
         #    class index
         #    class_clauses per polarity
@@ -330,34 +330,25 @@ class TsetlinMachine2:
         votes = self.sum_up_class_votes(clause_outputs)
         assert votes.shape == (self.class_count, )
 
+        # Automata and action tensors are 2D, indexed by:
+        #    polarity   (0 => positive, 1 => negative)
+        #    class index
+        #    class_clauses per polarity
+        #    input feature index
+        #
+
+
         #####################################
         ### Calculate Feedback to Clauses ###
         #####################################
 
-        # Initialize feedback to clauses
-        feedback_to_clauses = IntTensor(self.clause_count).zero_()
-
-        # Process target
-        half = self.clauses_per_class // 2
+        # Process target -- random selection of target clauses to update
         thresh = (1.0 / (self.threshold * 2)) * (self.threshold - votes[target_class])
-        feedback_threshold = torch.rand((self.clauses_per_class, ))
-        feedback_threshold = (feedback_threshold <= thresh).int()
-        start = target_class * self.clauses_per_class
-        mid = start + self.clauses_per_class // 2
-        end = start + self.clauses_per_class
-        feedback_to_clauses[start : mid] += feedback_threshold[:half]
-        feedback_to_clauses[mid : end] -= feedback_threshold[half:]
+        target_feedback = (torch.rand((2, self.clauses_per_class // 2)) <= thresh).int()
 
-        # Process anti-target
+        # Process anti-target -- random selection of anti target clauses to update
         thresh = (1.0 / (self.threshold * 2)) * (self.threshold + votes[target_class])
-        feedback_threshold = torch.rand((self.clauses_per_class, ))
-        feedback_threshold = (feedback_threshold <= thresh).int()
-        start = anti_target_class * self.clauses_per_class
-        mid = start + self.clauses_per_class // 2
-        end = start + self.clauses_per_class
-
-        feedback_to_clauses[start : mid] -= feedback_threshold[:half]
-        feedback_to_clauses[mid : end] += feedback_threshold[half:]
+        anti_target_feedback = (torch.rand((2, self.clauses_per_class // 2)) <= thresh).int()
 
         #################################
         ### Train Individual Automata ###
@@ -383,43 +374,17 @@ class TsetlinMachine2:
         delta =  clause_matrix * (input * high_prob - (1-input) * low_prob)
         delta_neg = clause_matrix * (-1 * input * low_prob + (1 - input) * high_prob)
 
-        not_action_include = (self.automata <= self.state_count)
-        not_action_include_negated = (
-                    self.inverting_automata <= self.state_count)
+        not_action_include = self.automata <= self.states
+        not_action_include_negated = self.inv_automata <= self.states
 
         self.automata += (pos_feedback_matrix * (low_delta + delta) + \
             neg_feedback_matrix * (clause_matrix * (1 - input) * (not_action_include))).int()
 
-        self.inverting_automata += (pos_feedback_matrix * (low_delta + delta_neg) + \
+        self.inv_automata += (pos_feedback_matrix * (low_delta + delta_neg) + \
             neg_feedback_matrix * clause_matrix * input * (not_action_include_negated)).int()
 
-
-        '''
-        ###########################
-        # Train automata for target class
-        ###########################
-        target_feedback = self._compute_feedback(target_class, votes,
-                                                is_anti_target=False)
-        print(target_feedback.shape)
-        assert target_feedback.shape == (self.clauses_per_class, ), str(target_feedback.shape)
-
-
-        start = target_class * self.clauses_per_class
-        end = start + self.clauses_per_class
-        self._train_class(input, target_class, clause_outputs[start : end], target_feedback)
-
-        ###########################
-        # Train automata for anti-target class
-        ###########################
-        anti_target_feedback = self._compute_feedback(anti_target_class, votes,
-                                                     is_anti_target=True)
-
-        start = anti_target_class * self.clauses_per_class
-        end = start + self.clauses_per_class
-        self._train_class(input, anti_target_class, clause_outputs[start : end], anti_target_feedback)
-        '''
-        self.automata.clamp(1, 2 * self.state_count)
-        self.inverting_automata.clamp(1, 2 * self.state_count)
+        self.automata.clamp(1, 2 * self.states)
+        self.inv_automata.clamp(1, 2 * self.states)
         self.update_action()
 
     def fit(self, X: np.ndarray, y: np.ndarray, number_of_examples, epochs=100):
