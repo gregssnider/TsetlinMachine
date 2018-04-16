@@ -2,6 +2,14 @@ import torch
 import numpy as np
 from torch import IntTensor, ByteTensor, CharTensor
 
+# Automata and action tensors are 2D, indexed by:
+
+#    polarity   (0 => positive, 1 => negative)
+#    class index
+#    class_clauses per polarity
+#    input feature index
+#
+
 
 x = np.array([
     [1, 2],
