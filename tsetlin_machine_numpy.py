@@ -66,13 +66,8 @@ class MultiClassTsetlinMachine:
         self.inverting_automata = np.random.choice(
             np.array([state_count, state_count + 1]),
             size=(clauses_count, feature_count)).astype(np.int32)
-        self.action = np.zeros((clauses_count, feature_count),
-                               dtype=np.int8)
-        self.inverting_action = np.zeros((clauses_count, feature_count),
-                                   dtype=np.int8)
-
-        # Data structures for keeping track of which clause refers to which class, and the sign of the clause
-        clause_count = np.zeros((class_count,), dtype=np.int32)
+        self.action = np.zeros((clauses_count, feature_count), dtype=np.int8)
+        self.inverting_action = np.zeros((clauses_count, feature_count), dtype=np.int8)
 
         # Data structures for intermediate calculations (clause output, summation of votes, and feedback to clauses)
         self.clause_output = np.zeros(shape=(clauses_count,), dtype=np.int8)
@@ -80,14 +75,6 @@ class MultiClassTsetlinMachine:
         self.feedback_to_clauses = np.zeros(shape=(clauses_count),
                                             dtype=np.int32)
 
-        # Set up the Tsetlin Machine structure
-        for i in range(class_count):
-            clauses_per_class = clauses_count // class_count
-            for j in range(clauses_per_class):
-                # To allow for better vectorization, we move negative polarity
-                # clauses to the second half of the subarray for the class
-
-                clause_count[i] += 1
         self.update_action()
 
     def get_clause_index(self, class_index, clause_index):
