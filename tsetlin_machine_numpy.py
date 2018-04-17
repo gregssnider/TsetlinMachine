@@ -97,12 +97,8 @@ class MultiClassTsetlinMachine:
         class_sum = np.zeros(shape=(class_count,), dtype=np.int32)
         for target_class in range(self.class_count):
             for clause in range(self.clauses_per_class // 2):
-                #global_clause_index = self.get_clause_index(0, target_class, j)
-                #class_sum[target_class] += clause_output[global_clause_index]
                 class_sum[target_class] += clause_output[0, target_class, clause, 0]
             for clause in range(self.clauses_per_class // 2):
-                #global_clause_index = self.get_clause_index(1, target_class, j)
-                #class_sum[target_class] -= clause_output[global_clause_index]
                 class_sum[target_class] -= clause_output[1, target_class, clause, 0]
             if class_sum[target_class] > self.threshold:
                 class_sum[target_class] = self.threshold
@@ -244,25 +240,16 @@ class MultiClassTsetlinMachine:
         feedback_rand = np.random.random((2, self.clauses_per_class // 2, 1))
         feedback_threshold = feedback_rand <= (
                     1.0 / (self.threshold * 2)) *  (self.threshold - class_sum[target_class])
-        #start = self.get_clause_index(0, target_class, 0)
-        #end = start + self.clauses_per_class // 2
         feedback_to_clauses[0, target_class] += feedback_threshold[0]
-        #start = self.get_clause_index(1, target_class, 0)
-        #end = start + self.clauses_per_class // 2
         feedback_to_clauses[1, target_class] -= feedback_threshold[1]
 
         # Process negative target
-        half = self.clauses_per_class // 2
         feedback_rand = np.random.random((2, self.clauses_per_class // 2, 1))
         feedback_threshold = feedback_rand <= (
                     1.0 / (self.threshold * 2)) * \
                              (self.threshold + class_sum[
                                  negative_target_class])
-        #start = self.get_clause_index(0, negative_target_class, 0)
-        #end = start + self.clauses_per_class // 2
         feedback_to_clauses[0, negative_target_class] -= feedback_threshold[0]
-        #start = self.get_clause_index(1, negative_target_class, 0)
-        #end = start + self.clauses_per_class // 2
         feedback_to_clauses[1, negative_target_class] += feedback_threshold[1]
 
         #################################
