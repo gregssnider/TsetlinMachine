@@ -29,7 +29,6 @@ spec = [
     ('inverting_automata', int32[:, :]),  # indices: [clause, feature]
     ('action', int8[:, :]),  # indices: [clause, feature]
     ('inverting_action', int8[:, :]),  # indices: [clause, feature]
-    ('clause_sign', int32[:, :]),  # indices: [class, clause]
     ('clause_output', int8[::1]),
     ('class_sum', int32[:]),
     ('feedback_to_clauses', int32[::1]),
@@ -74,8 +73,6 @@ class MultiClassTsetlinMachine:
 
         # Data structures for keeping track of which clause refers to which class, and the sign of the clause
         clause_count = np.zeros((class_count,), dtype=np.int32)
-        self.clause_sign = np.zeros((class_count, clauses_count),
-                                    dtype=np.int32)
 
         # Data structures for intermediate calculations (clause output, summation of votes, and feedback to clauses)
         self.clause_output = np.zeros(shape=(clauses_count,), dtype=np.int8)
@@ -89,10 +86,6 @@ class MultiClassTsetlinMachine:
             for j in range(clauses_per_class):
                 # To allow for better vectorization, we move negative polarity
                 # clauses to the second half of the subarray for the class
-                if j < clauses_per_class // 2:
-                    self.clause_sign[i, clause_count[i]] = 1
-                else:
-                    self.clause_sign[i, clause_count[i]] = -1
 
                 clause_count[i] += 1
         self.update_action()
