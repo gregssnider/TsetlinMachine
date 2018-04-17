@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from torch import IntTensor, ByteTensor, CharTensor
+from torch import IntTensor, ByteTensor, CharTensor, FloatTensor
 import time
 import sys
 import numba
@@ -375,8 +375,8 @@ class TsetlinMachine2:
         ###########################
         ### Sum up Clause Votes ###
         ###########################
-        votes = self.sum_up_class_votes(clause_outputs)
-        assert votes.shape == (self.class_count, )
+        class_sum = self.sum_up_class_votes(clause_outputs)
+        assert class_sum.shape == (self.class_count, )
 
         # Automata and action tensors are 2D, indexed by:
         #    polarity   (0 => positive, 1 => negative)
@@ -384,8 +384,70 @@ class TsetlinMachine2:
         #    class_clauses per polarity
         #    input feature index
         #
+        #-----------------------------------------------------------------------------------
+        #####################################
+        ### Calculate Feedback to Clauses ###
+        #####################################
+
+        # Initialize feedback to clauses
+        feedback_to_clauses = IntTensor(*clause_shape).zero_()
+        #feedback_to_clauses = np.zeros(shape=clause_shape, dtype=np.int32)
+
+        # Process target
+        half = self.clauses_per_class // 2
+        feedback_rand = FloatTensor(2, self.clauses_per_class // 2, 1).random_(0, 1)
+        #feedback_rand = np.random.random((2, self.clauses_per_class // 2, 1))
+
+        feedback_threshold = feedback_rand <= (
+                    1.0 / (self.threshold * 2)) *  (self.threshold - class_sum[target_class])
+        feedback_to_clauses[0, target_class] += feedback_threshold[0].int()
+        feedback_to_clauses[1, target_class] -= feedback_threshold[1].int()
+
+        # Process negative target
+        feedback_rand = FloatTensor(2, self.clauses_per_class // 2, 1).random_(0, 1)
+        #feedback_rand = np.random.random((2, self.clauses_per_class // 2, 1))
+
+        feedback_threshold = feedback_rand <= (
+                    1.0 / (self.threshold * 2)) * \
+                             (self.threshold + class_sum[
+                                 anti_target_class])
+        feedback_to_clauses[0, anti_target_class] -= feedback_threshold[0].int()
+        feedback_to_clauses[1, anti_target_class] += feedback_threshold[1].int()
+
+        #################################
+        ### Train Individual Automata ###
+        #################################
+
+        low_prob = self._low_probability()
+        high_prob = self._high_probability()
+
+        # The reshape trick allows us to multiply the rows of a 2D matrix,
+        # with the rows of the 1D clause_output.
+        clause_matrix = clause_outputs
+        inv_clause_matrix = clause_matrix ^ 1
+        feedback_matrix = feedback_to_clauses
+        pos_feedback_matrix = (feedback_matrix > 0)
+        neg_feedback_matrix = (feedback_matrix < 0)
+
+        # Vectorization -- this is essentially unreadable. It replaces
+        # the commented out code just below it
+        X = input
+        inv_X = input ^ 1
+        low_delta = inv_clause_matrix * (-low_prob)
+        delta = clause_matrix * (X * high_prob - inv_X * low_prob)
+        delta_neg = clause_matrix * (X * -low_prob + inv_X * high_prob)
+
+        self.automata += pos_feedback_matrix * (low_delta + delta) + \
+                         neg_feedback_matrix * (clause_matrix * inv_X * (
+            (self.action ^ 1)))
+
+        self.inv_automata += pos_feedback_matrix * (low_delta + delta_neg) + \
+                             neg_feedback_matrix * clause_matrix * X * (
+                                 (self.inv_action ^ 1))
+        #-----------------------------------------------------------------------------------
 
 
+        '''
         #####################################
         ### Calculate Feedback to Clauses ###
         #####################################
@@ -395,7 +457,6 @@ class TsetlinMachine2:
 
         # Negative polarity clauses
 
-        '''
 
         # Initialize feedback to clauses
         feedback_to_clauses = IntTensor(*self.clause_shape).zero_()

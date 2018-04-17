@@ -272,7 +272,7 @@ class MultiClassTsetlinMachine:
         inv_X = X ^ 1
         low_delta = inv_clause_matrix * (-low_prob)
         delta = clause_matrix * (X * high_prob - inv_X * low_prob)
-        delta_neg = clause_matrix * (-X * low_prob + inv_X * high_prob)
+        delta_neg = clause_matrix * (X * -low_prob + inv_X * high_prob)
 
         self.automata += pos_feedback_matrix * (low_delta + delta) + \
                          neg_feedback_matrix * (clause_matrix * inv_X * (
