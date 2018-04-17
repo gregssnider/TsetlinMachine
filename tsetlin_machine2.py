@@ -55,6 +55,8 @@ class TsetlinMachine2:
         '''
         action_shape = (polarities, class_count,
                              self.clauses_per_class // polarities, feature_count)
+        clause_shape = (polarities, class_count,
+                             self.clauses_per_class // polarities, 1)
         self.automata = IntTensor(*action_shape).random_(states, states + 2)
         self.inv_automata = IntTensor(*action_shape).random_(states, states + 2)
         self.action = IntTensor(*action_shape)
