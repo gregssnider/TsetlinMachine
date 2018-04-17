@@ -23,14 +23,13 @@ spec = [
     ('clauses_count', int32),
     ('clauses_per_class', int32),
     ('feature_count', int32),
-    ('s', float64),
     ('state_count', int32),
+    ('s', float64),
+    ('threshold', int32),
     ('automata', int32[:, :]),  # indices: [clause, feature]
     ('inverting_automata', int32[:, :]),  # indices: [clause, feature]
     ('action', int8[:, :]),  # indices: [clause, feature]
     ('inverting_action', int8[:, :]),  # indices: [clause, feature]
-    ('feedback_to_clauses', int32[::1]),
-    ('threshold', int32),
 
 ]
 
@@ -39,13 +38,7 @@ X_shape = 123
 
 @jitclass(spec)
 class MultiClassTsetlinMachine:
-
-    def rand(self):
-        return random.random()
-        # return random.randint(0, RAND_MAX - 1)
-
-        # Initialization of the Tsetlin Machine
-
+    # Initialization of the Tsetlin Machine
     def __init__(self, class_count, clauses_count, feature_count,
                  state_count, s, threshold):
 
@@ -66,11 +59,6 @@ class MultiClassTsetlinMachine:
             size=(clauses_count, feature_count)).astype(np.int32)
         self.action = np.zeros((clauses_count, feature_count), dtype=np.int8)
         self.inverting_action = np.zeros((clauses_count, feature_count), dtype=np.int8)
-
-        # Data structures for intermediate calculations (clause output, summation of votes, and feedback to clauses)
-        #self.clause_output = np.zeros(shape=(clauses_count,), dtype=np.int8)
-        self.feedback_to_clauses = np.zeros(shape=(clauses_count),
-                                            dtype=np.int32)
 
         self.update_action()
 
@@ -243,7 +231,7 @@ class MultiClassTsetlinMachine:
         #####################################
 
         # Initialize feedback to clauses
-        self.feedback_to_clauses = np.zeros_like(self.feedback_to_clauses)
+        feedback_to_clauses = np.zeros(shape=(clauses_count), dtype=np.int32)
 
         # Process target
         half = self.clauses_per_class // 2
@@ -254,8 +242,8 @@ class MultiClassTsetlinMachine:
         start = self.get_clause_index(target_class, 0)
         mid = start + self.clauses_per_class // 2
         end = start + self.clauses_per_class
-        self.feedback_to_clauses[start: mid] += feedback_threshold[:half]
-        self.feedback_to_clauses[mid: end] -= feedback_threshold[half:]
+        feedback_to_clauses[start: mid] += feedback_threshold[:half]
+        feedback_to_clauses[mid: end] -= feedback_threshold[half:]
 
         # Process negative target
         half = self.clauses_per_class // 2
@@ -267,8 +255,8 @@ class MultiClassTsetlinMachine:
         start = self.get_clause_index(negative_target_class, 0)
         mid = start + self.clauses_per_class // 2
         end = start + self.clauses_per_class
-        self.feedback_to_clauses[start: mid] -= feedback_threshold[:half]
-        self.feedback_to_clauses[mid: end] += feedback_threshold[half:]
+        feedback_to_clauses[start: mid] -= feedback_threshold[:half]
+        feedback_to_clauses[mid: end] += feedback_threshold[half:]
 
         #################################
         ### Train Individual Automata ###
@@ -281,7 +269,7 @@ class MultiClassTsetlinMachine:
         # with the rows of the 1D clause_output.
         clause_matrix = clause_outputs.reshape(-1, 1)
         inv_clause_matrix = clause_matrix ^ 1
-        feedback_matrix = self.feedback_to_clauses.reshape(-1, 1)
+        feedback_matrix = feedback_to_clauses.reshape(-1, 1)
         pos_feedback_matrix = (feedback_matrix > 0)
         neg_feedback_matrix = (feedback_matrix < 0)
 
