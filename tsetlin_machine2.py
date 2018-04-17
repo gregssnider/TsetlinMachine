@@ -394,8 +394,8 @@ class TsetlinMachine2:
         #feedback_to_clauses = np.zeros(shape=clause_shape, dtype=np.int32)
 
         # Process target
-        half = self.clauses_per_class // 2
-        feedback_rand = FloatTensor(2, self.clauses_per_class // 2, 1).random_(0, 1)
+        feedback_rand = torch.rand(2, self.clauses_per_class // 2, 1)
+        #feedback_rand = FloatTensor(2, self.clauses_per_class // 2, 1).random_(0, 1)
         #feedback_rand = np.random.random((2, self.clauses_per_class // 2, 1))
 
         feedback_threshold = feedback_rand <= (
@@ -404,7 +404,8 @@ class TsetlinMachine2:
         feedback_to_clauses[1, target_class] -= feedback_threshold[1].int()
 
         # Process negative target
-        feedback_rand = FloatTensor(2, self.clauses_per_class // 2, 1).random_(0, 1)
+        feedback_rand = torch.rand(2, self.clauses_per_class // 2, 1)
+        #feedback_rand = FloatTensor(2, self.clauses_per_class // 2, 1).random_(0, 1)
         #feedback_rand = np.random.random((2, self.clauses_per_class // 2, 1))
 
         feedback_threshold = feedback_rand <= (
