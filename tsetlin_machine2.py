@@ -418,32 +418,32 @@ class TsetlinMachine2:
         ### Train Individual Automata ###
         #################################
 
-        low_prob = self._low_probability()
-        high_prob = self._high_probability()
+        low_prob = self._low_probability().int()
+        high_prob = self._high_probability().int()
 
         # The reshape trick allows us to multiply the rows of a 2D matrix,
         # with the rows of the 1D clause_output.
-        clause_matrix = clause_outputs
+        clause_matrix = clause_outputs.int()
         inv_clause_matrix = clause_matrix ^ 1
         feedback_matrix = feedback_to_clauses
-        pos_feedback_matrix = (feedback_matrix > 0)
-        neg_feedback_matrix = (feedback_matrix < 0)
+        pos_feedback_matrix = (feedback_matrix > 0).int()
+        neg_feedback_matrix = (feedback_matrix < 0).int()
 
         # Vectorization -- this is essentially unreadable. It replaces
         # the commented out code just below it
-        X = input
-        inv_X = input ^ 1
-        low_delta = inv_clause_matrix * (-low_prob)
+        X = input.int()
+        inv_X = (input ^ 1).int()
+        low_delta = inv_clause_matrix * (-1 * low_prob)
         delta = clause_matrix * (X * high_prob - inv_X * low_prob)
-        delta_neg = clause_matrix * (X * -low_prob + inv_X * high_prob)
+        delta_neg = clause_matrix * (X * (-1 * low_prob) + inv_X * high_prob)
 
         self.automata += pos_feedback_matrix * (low_delta + delta) + \
                          neg_feedback_matrix * (clause_matrix * inv_X * (
-            (self.action ^ 1)))
+            (self.action ^ 1).int()))
 
         self.inv_automata += pos_feedback_matrix * (low_delta + delta_neg) + \
                              neg_feedback_matrix * clause_matrix * X * (
-                                 (self.inv_action ^ 1))
+                                 (self.inv_action ^ 1).int())
         #-----------------------------------------------------------------------------------
 
 
