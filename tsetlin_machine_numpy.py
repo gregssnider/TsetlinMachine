@@ -30,7 +30,6 @@ spec = [
     ('action', int8[:, :]),  # indices: [clause, feature]
     ('inverting_action', int8[:, :]),  # indices: [clause, feature]
     ('clause_output', int8[::1]),
-    ('class_sum', int32[:]),
     ('feedback_to_clauses', int32[::1]),
     ('threshold', int32),
 
@@ -71,7 +70,6 @@ class MultiClassTsetlinMachine:
 
         # Data structures for intermediate calculations (clause output, summation of votes, and feedback to clauses)
         self.clause_output = np.zeros(shape=(clauses_count,), dtype=np.int8)
-        self.class_sum = np.zeros(shape=(class_count,), dtype=np.int32)
         self.feedback_to_clauses = np.zeros(shape=(clauses_count),
                                             dtype=np.int32)
 
@@ -102,21 +100,20 @@ class MultiClassTsetlinMachine:
 
     # Sum up the votes for each class (this is the multiclass version of the Tsetlin Machine)
     def sum_up_class_votes(self):
+        class_sum = np.zeros(shape=(class_count,), dtype=np.int32)
         for target_class in range(self.class_count):
-            self.class_sum[target_class] = 0
-
             for j in range(self.clauses_per_class):
                 global_clause_index = self.get_clause_index(target_class, j)
                 # global_clause_index = self.global_clause_index[target_class, j]
-                self.class_sum[target_class] += \
+                class_sum[target_class] += \
                     self.clause_output[global_clause_index] * \
                     self.get_clause_sign(j)
                     #self.clause_sign[target_class, j]
-
-            if self.class_sum[target_class] > self.threshold:
-                self.class_sum[target_class] = self.threshold
-            elif self.class_sum[target_class] < -self.threshold:
-                self.class_sum[target_class] = -self.threshold
+            if class_sum[target_class] > self.threshold:
+                class_sum[target_class] = self.threshold
+            elif class_sum[target_class] < -self.threshold:
+                class_sum[target_class] = -self.threshold
+        return class_sum
 
     ########################################
     ### Predict Target Class for Input X ###
@@ -133,17 +130,17 @@ class MultiClassTsetlinMachine:
         ### Sum up Clause Votes ###
         ###########################
 
-        self.sum_up_class_votes()
+        class_sum = self.sum_up_class_votes()
 
         ##########################################
         ### Identify Class with Largest Output ###
         ##########################################
 
-        max_class_sum = self.class_sum[0]
+        max_class_sum = class_sum[0]
         max_class = 0
         for target_class in range(1, self.class_count):
-            if max_class_sum < self.class_sum[target_class]:
-                max_class_sum = self.class_sum[target_class]
+            if max_class_sum < class_sum[target_class]:
+                max_class_sum = class_sum[target_class]
                 max_class = target_class
 
         return max_class
@@ -170,17 +167,17 @@ class MultiClassTsetlinMachine:
             ### Sum up Clause Votes ###
             ###########################
 
-            self.sum_up_class_votes()
+            class_sum = self.sum_up_class_votes()
 
             ##########################################
             ### Identify Class with Largest Output ###
             ##########################################
 
-            max_class_sum = self.class_sum[0]
+            max_class_sum = class_sum[0]
             max_class = 0
             for target_class in range(1, self.class_count):
-                if max_class_sum < self.class_sum[target_class]:
-                    max_class_sum = self.class_sum[target_class]
+                if max_class_sum < class_sum[target_class]:
+                    max_class_sum = class_sum[target_class]
                     max_class = target_class
 
             if max_class != y[l]:
@@ -238,7 +235,7 @@ class MultiClassTsetlinMachine:
         ### Sum up Clause Votes ###
         ###########################
 
-        self.sum_up_class_votes()
+        class_sum = self.sum_up_class_votes()
 
         #####################################
         ### Calculate Feedback to Clauses ###
@@ -252,7 +249,7 @@ class MultiClassTsetlinMachine:
         feedback_threshold = np.random.random((self.clauses_per_class,))
         feedback_threshold = feedback_threshold <= (
                     1.0 / (self.threshold * 2)) * \
-                             (self.threshold - self.class_sum[target_class])
+                             (self.threshold - class_sum[target_class])
         start = self.get_clause_index(target_class, 0)
         mid = start + self.clauses_per_class // 2
         end = start + self.clauses_per_class
@@ -264,7 +261,7 @@ class MultiClassTsetlinMachine:
         feedback_threshold = np.random.random((self.clauses_per_class,))
         feedback_threshold = feedback_threshold <= (
                     1.0 / (self.threshold * 2)) * \
-                             (self.threshold + self.class_sum[
+                             (self.threshold + class_sum[
                                  negative_target_class])
         start = self.get_clause_index(negative_target_class, 0)
         mid = start + self.clauses_per_class // 2
