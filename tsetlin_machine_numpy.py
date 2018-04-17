@@ -65,12 +65,6 @@ class MultiClassTsetlinMachine:
     def get_clause_index(self, polarity, class_index, clause_index):
         return class_index * self.clauses_per_class + clause_index
 
-    def get_clause_sign(self, clause_in_class_index):
-        if clause_in_class_index < self.clauses_per_class // 2:
-            return 1
-        else:
-            return -1
-
     def update_action(self):
         self.action = (self.automata > self.state_count)
         self.inv_action = (self.inv_automata > self.state_count)
@@ -93,11 +87,9 @@ class MultiClassTsetlinMachine:
         for target_class in range(self.class_count):
             for j in range(self.clauses_per_class):
                 global_clause_index = self.get_clause_index(0, target_class, j)
-                # global_clause_index = self.global_clause_index[target_class, j]
+                clause_sign = 1 if j < self.clauses_per_class // 2 else -1
                 class_sum[target_class] += \
-                    clause_output[global_clause_index] * \
-                    self.get_clause_sign(j)
-                    #self.clause_sign[target_class, j]
+                    clause_output[global_clause_index] * clause_sign
             if class_sum[target_class] > self.threshold:
                 class_sum[target_class] = self.threshold
             elif class_sum[target_class] < -self.threshold:
