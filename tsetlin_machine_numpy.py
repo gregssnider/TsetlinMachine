@@ -114,23 +114,9 @@ class MultiClassTsetlinMachine:
         for j in range(self.clauses_count):
             self.clause_output[j] = 1
             for k in range(self.feature_count):
-                action_include = self.action[j, k]
-                action_include_negated = self.inverting_action[j, k]
-
                 if (self.action[j, k] == 1 and X[k] == 0) or \
                         (self.inverting_action[j, k] == 1 and X[k] == 1):
                     self.clause_output[j] = 0
-                    # break
-        '''
-        # The reshape trick allows us to multiply the rows of a 2D matrix,
-        # with the rows of the 1D clause_output.
-        input_matrix = X.reshape(-1, 1)
-        input_matrix_neg = input_matrix ^ 1 & input_matrix
-        self.clause_output = self.inverting_action.astype(np.int8)
-        #self.clause_output = (self.inverting_action + input_matrix).astype(np.int8) #* \
-        #                     (self.action + input_matrix_neg)
-        '''
-
 
     # Sum up the votes for each class (this is the multiclass version of the Tsetlin Machine)
     def sum_up_class_votes(self):
