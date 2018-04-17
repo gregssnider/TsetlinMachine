@@ -63,7 +63,11 @@ class MultiClassTsetlinMachine:
         self.update_action()
 
     def get_clause_index(self, polarity, class_index, clause_index):
-        return class_index * self.clauses_per_class + clause_index
+        assert clause_index < self.clauses_per_class // 2
+        index = class_index * self.clauses_per_class + clause_index
+        if polarity == 1:
+            index += self.clauses_per_class // 2
+        return index
 
     def update_action(self):
         self.action = (self.automata > self.state_count)
@@ -85,11 +89,12 @@ class MultiClassTsetlinMachine:
     def sum_up_class_votes(self, clause_output):
         class_sum = np.zeros(shape=(class_count,), dtype=np.int32)
         for target_class in range(self.class_count):
-            for j in range(self.clauses_per_class):
+            for j in range(self.clauses_per_class // 2):
                 global_clause_index = self.get_clause_index(0, target_class, j)
-                clause_sign = 1 if j < self.clauses_per_class // 2 else -1
-                class_sum[target_class] += \
-                    clause_output[global_clause_index] * clause_sign
+                class_sum[target_class] += clause_output[global_clause_index]
+            for j in range(self.clauses_per_class // 2):
+                global_clause_index = self.get_clause_index(1, target_class, j)
+                class_sum[target_class] -= clause_output[global_clause_index]
             if class_sum[target_class] > self.threshold:
                 class_sum[target_class] = self.threshold
             elif class_sum[target_class] < -self.threshold:
