@@ -27,9 +27,9 @@ spec = [
     ('s', float64),
     ('threshold', int32),
     ('automata', int32[:, :]),  # indices: [clause, feature]
-    ('inverting_automata', int32[:, :]),  # indices: [clause, feature]
+    ('inv_automata', int32[:, :]),  # indices: [clause, feature]
     ('action', int8[:, :]),  # indices: [clause, feature]
-    ('inverting_action', int8[:, :]),  # indices: [clause, feature]
+    ('inv_action', int8[:, :]),  # indices: [clause, feature]
 
 ]
 
@@ -54,11 +54,11 @@ class MultiClassTsetlinMachine:
         self.automata = np.random.choice(
             np.array([state_count, state_count + 1]),
             size=(clauses_count, feature_count)).astype(np.int32)
-        self.inverting_automata = np.random.choice(
+        self.inv_automata = np.random.choice(
             np.array([state_count, state_count + 1]),
             size=(clauses_count, feature_count)).astype(np.int32)
         self.action = np.zeros((clauses_count, feature_count), dtype=np.int8)
-        self.inverting_action = np.zeros((clauses_count, feature_count), dtype=np.int8)
+        self.inv_action = np.zeros((clauses_count, feature_count), dtype=np.int8)
 
         self.update_action()
 
@@ -73,7 +73,7 @@ class MultiClassTsetlinMachine:
 
     def update_action(self):
         self.action = (self.automata > self.state_count)
-        self.inverting_action = (self.inverting_automata > self.state_count)
+        self.inv_action = (self.inv_automata > self.state_count)
 
     # Calculate the output of each clause using the actions of each Tsetline Automaton.
     # Output is stored an internal output array.
@@ -83,7 +83,7 @@ class MultiClassTsetlinMachine:
             clause_output[j] = 1
             for k in range(self.feature_count):
                 if (self.action[j, k] == 1 and X[k] == 0) or \
-                        (self.inverting_action[j, k] == 1 and X[k] == 1):
+                        (self.inv_action[j, k] == 1 and X[k] == 1):
                     clause_output[j] = 0
         return clause_output
 
@@ -285,13 +285,13 @@ class MultiClassTsetlinMachine:
 
         not_action_include = (self.automata <= self.state_count)
         not_action_include_negated = (
-                self.inverting_automata <= self.state_count)
+                self.inv_automata <= self.state_count)
 
         self.automata += pos_feedback_matrix * (low_delta + delta) + \
                          neg_feedback_matrix * (clause_matrix * (1 - X) * (
             not_action_include))
 
-        self.inverting_automata += pos_feedback_matrix * (low_delta + delta_neg) + \
+        self.inv_automata += pos_feedback_matrix * (low_delta + delta_neg) + \
                              neg_feedback_matrix * clause_matrix * X * (
                                  not_action_include_negated)
 
@@ -308,7 +308,7 @@ class MultiClassTsetlinMachine:
                 delta_neg = clause_matrix[j] * (
                             -X * low_prob[j] + (1 - X) * high_prob[j])
                 self.automata[j] += low_delta + delta
-                self.inverting_automata[j] += low_delta + delta_neg
+                self.inv_automata[j] += low_delta + delta_neg
 
             elif self.feedback_to_clauses[j] < 0:
                 #####################################################
@@ -317,9 +317,9 @@ class MultiClassTsetlinMachine:
 
                 # First do this by rows (clauses)
                 action_include = (self.automata[j] > self.state_count).astype(np.int32)
-                action_include_negated = (self.inverting_automata[j] > self.state_count).astype(np.int32)
+                action_include_negated = (self.inv_automata[j] > self.state_count).astype(np.int32)
                 self.automata[j] += clause_matrix[j] * (1 - X) * (1 - action_include)
-                self.inverting_automata[j] += clause_matrix[j] * X * (1 - action_include_negated)
+                self.inv_automata[j] += clause_matrix[j] * X * (1 - action_include_negated)
         '''
 
         self.clamp_automata()
@@ -332,14 +332,14 @@ class MultiClassTsetlinMachine:
         smallest = 1
         biggest = self.state_count * 2
         np.clip(self.automata, smallest, biggest, self.automata)
-        np.clip(self.inverting_automata, smallest, biggest, self.inverting_automata)
+        np.clip(self.inv_automata, smallest, biggest, self.inv_automata)
         '''
         for j in range(self.clauses_count):
             for k in range(self.feature_count):
                 self.automata[j, k] = max(
                     min(self.automata[j, k], self.state_count * 2), 1)
-                self.inverting_automata[j, k] = max(
-                    min(self.inverting_automata[j, k], self.state_count * 2), 1)
+                self.inv_automata[j, k] = max(
+                    min(self.inv_automata[j, k], self.state_count * 2), 1)
 
     ##############################################
     ### Batch Mode Training of Tsetlin Machine ###
