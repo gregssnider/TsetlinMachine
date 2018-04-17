@@ -62,7 +62,7 @@ class MultiClassTsetlinMachine:
 
         self.update_action()
 
-    def get_clause_index(self, class_index, clause_index):
+    def get_clause_index(self, polarity, class_index, clause_index):
         return class_index * self.clauses_per_class + clause_index
 
     def get_clause_sign(self, clause_in_class_index):
@@ -92,7 +92,7 @@ class MultiClassTsetlinMachine:
         class_sum = np.zeros(shape=(class_count,), dtype=np.int32)
         for target_class in range(self.class_count):
             for j in range(self.clauses_per_class):
-                global_clause_index = self.get_clause_index(target_class, j)
+                global_clause_index = self.get_clause_index(0, target_class, j)
                 # global_clause_index = self.global_clause_index[target_class, j]
                 class_sum[target_class] += \
                     clause_output[global_clause_index] * \
@@ -234,7 +234,7 @@ class MultiClassTsetlinMachine:
         feedback_threshold = feedback_threshold <= (
                     1.0 / (self.threshold * 2)) * \
                              (self.threshold - class_sum[target_class])
-        start = self.get_clause_index(target_class, 0)
+        start = self.get_clause_index(0, target_class, 0)
         mid = start + self.clauses_per_class // 2
         end = start + self.clauses_per_class
         feedback_to_clauses[start: mid] += feedback_threshold[:half]
@@ -247,7 +247,7 @@ class MultiClassTsetlinMachine:
                     1.0 / (self.threshold * 2)) * \
                              (self.threshold + class_sum[
                                  negative_target_class])
-        start = self.get_clause_index(negative_target_class, 0)
+        start = self.get_clause_index(0, negative_target_class, 0)
         mid = start + self.clauses_per_class // 2
         end = start + self.clauses_per_class
         feedback_to_clauses[start: mid] -= feedback_threshold[:half]
