@@ -111,17 +111,16 @@ class MultiClassTsetlinMachine:
     # Calculate the output of each clause using the actions of each Tsetline Automaton.
     # Output is stored an internal output array.
     def calculate_clause_output(self, X):
-
         for j in range(self.clauses_count):
             self.clause_output[j] = 1
             for k in range(self.feature_count):
                 action_include = self.action[j, k]
                 action_include_negated = self.inverting_action[j, k]
 
-                if (action_include == 1 and X[k] == 0) or \
-                        (action_include_negated == 1 and X[k] == 1):
+                if (self.action[j, k] == 1 and X[k] == 0) or \
+                        (self.inverting_action[j, k] == 1 and X[k] == 1):
                     self.clause_output[j] = 0
-                    break
+                    # break
         '''
         # The reshape trick allows us to multiply the rows of a 2D matrix,
         # with the rows of the 1D clause_output.
@@ -130,8 +129,8 @@ class MultiClassTsetlinMachine:
         self.clause_output = self.inverting_action.astype(np.int8)
         #self.clause_output = (self.inverting_action + input_matrix).astype(np.int8) #* \
         #                     (self.action + input_matrix_neg)
-
         '''
+
 
     # Sum up the votes for each class (this is the multiclass version of the Tsetlin Machine)
     def sum_up_class_votes(self):
