@@ -29,7 +29,6 @@ spec = [
     ('inverting_automata', int32[:, :]),  # indices: [clause, feature]
     ('action', int8[:, :]),  # indices: [clause, feature]
     ('inverting_action', int8[:, :]),  # indices: [clause, feature]
-    ('clause_count', int32[:]),  # index: [class]
     ('clause_sign', int32[:, :]),  # indices: [class, clause]
     ('clause_output', int8[::1]),
     ('class_sum', int32[:]),
@@ -74,7 +73,7 @@ class MultiClassTsetlinMachine:
                                    dtype=np.int8)
 
         # Data structures for keeping track of which clause refers to which class, and the sign of the clause
-        self.clause_count = np.zeros((class_count,), dtype=np.int32)
+        clause_count = np.zeros((class_count,), dtype=np.int32)
         self.clause_sign = np.zeros((class_count, clauses_count),
                                     dtype=np.int32)
 
@@ -91,11 +90,11 @@ class MultiClassTsetlinMachine:
                 # To allow for better vectorization, we move negative polarity
                 # clauses to the second half of the subarray for the class
                 if j < clauses_per_class // 2:
-                    self.clause_sign[i, self.clause_count[i]] = 1
+                    self.clause_sign[i, clause_count[i]] = 1
                 else:
-                    self.clause_sign[i, self.clause_count[i]] = -1
+                    self.clause_sign[i, clause_count[i]] = -1
 
-                self.clause_count[i] += 1
+                clause_count[i] += 1
         self.update_action()
 
     def get_clause_index(self, class_index, clause_index):
