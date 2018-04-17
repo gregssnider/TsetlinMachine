@@ -232,10 +232,11 @@ class MultiClassTsetlinMachine:
                     1.0 / (self.threshold * 2)) * \
                              (self.threshold - class_sum[target_class])
         start = self.get_clause_index(0, target_class, 0)
-        mid = start + self.clauses_per_class // 2
-        end = start + self.clauses_per_class
-        feedback_to_clauses[start: mid] += feedback_threshold[:half]
-        feedback_to_clauses[mid: end] -= feedback_threshold[half:]
+        end = start + self.clauses_per_class // 2
+        feedback_to_clauses[start: end] += feedback_threshold[:half]
+        start = self.get_clause_index(1, target_class, 0)
+        end = start + self.clauses_per_class // 2
+        feedback_to_clauses[start: end] -= feedback_threshold[half:]
 
         # Process negative target
         half = self.clauses_per_class // 2
@@ -245,10 +246,11 @@ class MultiClassTsetlinMachine:
                              (self.threshold + class_sum[
                                  negative_target_class])
         start = self.get_clause_index(0, negative_target_class, 0)
-        mid = start + self.clauses_per_class // 2
-        end = start + self.clauses_per_class
-        feedback_to_clauses[start: mid] -= feedback_threshold[:half]
-        feedback_to_clauses[mid: end] += feedback_threshold[half:]
+        end = start + self.clauses_per_class // 2
+        feedback_to_clauses[start: end] -= feedback_threshold[:half]
+        start = self.get_clause_index(1, negative_target_class, 0)
+        end = start + self.clauses_per_class // 2
+        feedback_to_clauses[start: end] += feedback_threshold[half:]
 
         #################################
         ### Train Individual Automata ###
