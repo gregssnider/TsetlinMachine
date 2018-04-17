@@ -269,12 +269,13 @@ class MultiClassTsetlinMachine:
 
         # Vectorization -- this is essentially unreadable. It replaces
         # the commented out code just below it
+        inv_X = X ^ 1
         low_delta = inv_clause_matrix * (-low_prob)
-        delta = clause_matrix * (X * high_prob - (1 - X) * low_prob)
-        delta_neg = clause_matrix * (-X * low_prob + (1 - X) * high_prob)
+        delta = clause_matrix * (X * high_prob - inv_X * low_prob)
+        delta_neg = clause_matrix * (-X * low_prob + inv_X * high_prob)
 
         self.automata += pos_feedback_matrix * (low_delta + delta) + \
-                         neg_feedback_matrix * (clause_matrix * (1 - X) * (
+                         neg_feedback_matrix * (clause_matrix * inv_X * (
             (self.action ^ 1)))
 
         self.inv_automata += pos_feedback_matrix * (low_delta + delta_neg) + \
