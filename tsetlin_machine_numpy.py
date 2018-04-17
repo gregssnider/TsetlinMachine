@@ -273,16 +273,13 @@ class MultiClassTsetlinMachine:
         delta = clause_matrix * (X * high_prob - (1 - X) * low_prob)
         delta_neg = clause_matrix * (-X * low_prob + (1 - X) * high_prob)
 
-        not_action_include = self.automata <= self.state_count
-        not_action_include_negated = self.inv_automata <= self.state_count
-
         self.automata += pos_feedback_matrix * (low_delta + delta) + \
                          neg_feedback_matrix * (clause_matrix * (1 - X) * (
-            not_action_include))
+            (self.action ^ 1)))
 
         self.inv_automata += pos_feedback_matrix * (low_delta + delta_neg) + \
                              neg_feedback_matrix * clause_matrix * X * (
-                                 not_action_include_negated)
+                                 (self.inv_action ^ 1))
 
         '''
         for j in range(self.clauses_count):
