@@ -20,23 +20,26 @@ def test_constructor():
 def calculate_clause_output(machine: TsetlinMachine2, input: ByteTensor):
     """Independent and slow implementation of the evaluate_clauses() method."""
     features = machine.feature_count
-    action = machine.action.view(-1, features).numpy()
-    inverting_action = machine.inv_action.view(-1, features).numpy()
+    action = machine.action.numpy()
+    inverting_action = machine.inv_action.numpy()
     input = input.numpy()
 
     # Manually calculate the output of the clauses. This is partly copied from
     # the author's cython implementation.
-    clauses = action.shape[0]
+    clauses = machine.clause_count
     output = [0] * clauses
-    for row in range(clauses):
-        output[row] = 1
-        for col in range(input.shape[0]):
-            action_include = action[row, col]
-            action_include_neg = inverting_action[row, col]
-            if (action_include == 1 and input[col] == 0) or \
-                    (action_include_neg == 1 and input[col] == 1):
-                output[row] = 0
-                break
+    for polarity in (0, 1):
+        for class_ in range(machine.class_count):
+            for clause in range(machine.clauses_per_class // 2):
+                output[clause] = 0
+                for feature in range(machine.feature_count):
+                    action_include = action[polarity, class_, clause, feature]
+                    action_include_neg = inverting_action[polarity, class_, clause, feature]
+                    if (action_include == 1 and input[feature] == 0) or \
+                            (action_include_neg == 1 and input[feature] == 1):
+                        output[feature] = 0
+                        break
+    # output shape = (machine.clause_count, )
     return ByteTensor(output)
 
 
@@ -54,82 +57,19 @@ def test_randomly_evaluate_clauses():
                                  feature_count=feature_count, states=3,
                                  s=3.9, threshold=15)
         input = random_input(feature_count)
-        output = machine.evaluate_clauses(input)
+        output = machine.evaluate_clauses(input).view(clause_count)
         expected_output = calculate_clause_output(machine, input)
         assert output.equal(expected_output)
-
-
-def test_evaluate_clauses():
-    clause_count = 4
-    feature_count = 5
-    machine = TsetlinMachine2(class_count=1, clause_count=clause_count,
-                             feature_count=feature_count, states=3,
-                             s=3.9, threshold=15)
-    # Replace the automata with crafted ones so we can check clause evaluation.
-    #    0 => corresponding input bit NOT used
-    #    4 => corresponding input bit IS used
-    automata_shape = (2, 1, 2, 5)
-    machine.automata = IntTensor([
-        [4, 4, 4, 0, 0],
-        [0, 4, 0, 0, 0],
-        [0, 0, 0, 0, 0],
-        [0, 0, 4, 4, 4],
-    ]).view(*automata_shape)
-    assert machine.automata.shape == automata_shape
-    machine.inverting_automata = IntTensor([
-        [0, 0, 0, 4, 4],
-        [0, 0, 4, 0, 0],
-        [0, 0, 0, 4, 4],
-        [0, 0, 0, 0, 0]
-    ]).view(*automata_shape)
-    assert machine.inverting_automata.shape == automata_shape
-    machine.update_action()
-    inputs = [
-        ByteTensor([0, 1, 0, 1, 1]),
-        ByteTensor([1, 1, 1, 0, 0]),
-        ByteTensor([0, 0, 0, 0, 0]),
-    ]
-    for index, input in enumerate(inputs):
-        output = machine.evaluate_clauses(input)
-        x = calculate_clause_output(machine, input)
-        assert x.equal(output)
 
 
 def test_sum_up_class_votes():
     class_count = 2
     clause_count = 16
-    feature_count = 5
+    feature_count = 500
     machine = TsetlinMachine2(class_count=class_count, clause_count=clause_count,
                              feature_count=feature_count, states=3,
                              s=3.9, threshold=15)
-    polarities = 2
-    clauses_per_class = clause_count // class_count
-    clause_outputs = torch.ByteTensor([
-        1, 0, 1, 1,                # pos polarity class 0
-        0, 1, 0, 0,                # pos polarity class 1
-        0, 0, 0, 1,                # neg polarity class 0
-        1, 1, 1, 1                 # neg polarity class 1
-    ])
-
-    ##################
-    x = clause_outputs.view(2, class_count, -1)
-    positive = x[0].int()
-    negative = x[1].int()
-    votes = torch.sum(positive - negative, dim=1)
-    votes = torch.clamp(votes, -15, 15)
-    print('pos')
-    print(positive)
-    print('neg')
-    print(negative)
-    print('votes')
-    print(votes)
-
-
-    ##################
-
-    expected_votes = torch.IntTensor(
-        [2, -3]
-    )
-    votes = machine.sum_up_class_votes(clause_outputs)
-    print(votes)
-    assert votes.equal(expected_votes)
+    input = ByteTensor([0, 1, 0, 1, 0] * 100)
+    clause_outputs = machine.evaluate_clauses(input)
+    class_votes = machine.sum_up_class_votes(clause_outputs)
+    print(class_votes)

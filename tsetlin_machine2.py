@@ -95,6 +95,8 @@ class TsetlinMachine2:
             1D boolean array of the outputs of each clause. The first half
                 contains the positive polarity clauses, the second half contains
                 the negative polarity clauses.
+                shape: (polarities, class_count, self.clauses_per_class // polarities, 1)
+
         """
         assert isinstance(input, ByteTensor)
         assert input.shape == (self.feature_count, )
@@ -127,7 +129,10 @@ class TsetlinMachine2:
         #   (2) conjunction of used, inverted inputs
         clause_result = conjunction & inv_conjunction
         assert isinstance(clause_result, ByteTensor), str(type(clause_result))
-        return clause_result
+
+        clause_shape = (2, self.class_count, self.clauses_per_class // 2, 1)
+
+        return clause_result.view(*clause_shape)
 
     def sum_up_class_votes(self, clause_outputs: ByteTensor) -> IntTensor:
         """Add up votes for all classes.
@@ -143,8 +148,10 @@ class TsetlinMachine2:
             shape = (self.class_count, ), integer sum of votes for each class.
 
         """
+        clause_shape = (2, self.class_count, self.clauses_per_class // 2, 1)
+
         assert isinstance(clause_outputs, ByteTensor)
-        assert clause_outputs.shape == (self.clause_count, )
+        assert clause_outputs.shape == clause_shape
 
 
         ##### (polarity, class, clause_in_half_class, feature)
@@ -152,11 +159,12 @@ class TsetlinMachine2:
         # We split the clauses into positive polarity and negative polarity,
         # then compute the polarity-weighted votes.
         #
-        # clause_outputs.shape = (2, classes, clauses_per_class // 2)
-        clause_outputs = clause_outputs.view(2, self.class_count, -1)
-        positive = clause_outputs[0].int()
+        # clause_outputs.shape = (2, classes, clauses_per_class // 2, 1)
+        #clause_outputs = clause_outputs.view(2, -1, 1)
+        #assert clause_outputs.shape == (2, self.clause_count // 2, 1)
+        positive = clause_outputs[0].int()  # shape(classes, clauses_per_class // 2, 1)
         negative = clause_outputs[1].int()
-        votes = positive - negative   # shape = (classes, clauses_per_class // 2)
+        votes = (positive - negative).view(self.class_count, -1)
 
         # The votes are spread evenly across the classes.
         class_votes = torch.sum(votes, dim=1)
@@ -179,7 +187,13 @@ class TsetlinMachine2:
         assert input.shape == (self.feature_count, )
 
         clause_outputs = self.evaluate_clauses(input)
+        clause_shape = (2, self.class_count, self.clauses_per_class // 2, 1)
+        assert clause_outputs.shape == clause_shape
+
+
         class_votes = self.sum_up_class_votes(clause_outputs)
+        assert class_votes.shape == (self.class_count, )
+
         value, index = torch.max(class_votes, 0)
         return index[0]
 
@@ -213,25 +227,29 @@ class TsetlinMachine2:
         accuracy = (examples - errors) / examples
         return accuracy
 
-    def _low_probability(self, rows: int, columns: int) -> ByteTensor:
+    def _low_probability(self) -> ByteTensor:
         """Compute an array of low probabilities.
 
         Each element in the array is 1 with probability (1 / s).
 
         Returns:
             boolean array of shape [rows][columns]
+            shape: action.shape
         """
-        return torch.rand((rows, columns)) <= 1.0 / self.s
+        action_shape = self.action.shape
+        return torch.rand(action_shape) <= 1.0 / self.s
 
-    def _high_probability(self, rows: int, columns: int) -> ByteTensor:
+    def _high_probability(self) -> ByteTensor:
         """Compute an array of high probabilities.
 
         Each element in the array is 1 with probability (s-1 / s).
 
         Returns:
             boolean array of shape [rows][columns]
+            shape: action_shape
         """
-        return torch.rand((rows, columns)) <= (self.s - 1.0) / self.s
+        action_shape = self.action.shape
+        return torch.rand(action_shape) <= (self.s - 1.0) / self.s
 
 
     def type_1_feedback(self, target_class: int, clause_outputs: ByteTensor,
@@ -349,8 +367,10 @@ class TsetlinMachine2:
         ###############################
         ### Calculate Clause Output ###
         ###############################
+        clause_shape = (2, self.class_count, self.clauses_per_class // 2, 1)
+
         clause_outputs = self.evaluate_clauses(input)
-        assert clause_outputs.shape == (self.clause_count, )
+        assert clause_outputs.shape == clause_shape
 
         ###########################
         ### Sum up Clause Votes ###
