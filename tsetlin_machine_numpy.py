@@ -29,7 +29,6 @@ spec = [
     ('inverting_automata', int32[:, :]),  # indices: [clause, feature]
     ('action', int8[:, :]),  # indices: [clause, feature]
     ('inverting_action', int8[:, :]),  # indices: [clause, feature]
-    ('clause_output', int8[::1]),
     ('feedback_to_clauses', int32[::1]),
     ('threshold', int32),
 
@@ -69,7 +68,7 @@ class MultiClassTsetlinMachine:
         self.inverting_action = np.zeros((clauses_count, feature_count), dtype=np.int8)
 
         # Data structures for intermediate calculations (clause output, summation of votes, and feedback to clauses)
-        self.clause_output = np.zeros(shape=(clauses_count,), dtype=np.int8)
+        #self.clause_output = np.zeros(shape=(clauses_count,), dtype=np.int8)
         self.feedback_to_clauses = np.zeros(shape=(clauses_count),
                                             dtype=np.int32)
 
@@ -91,22 +90,24 @@ class MultiClassTsetlinMachine:
     # Calculate the output of each clause using the actions of each Tsetline Automaton.
     # Output is stored an internal output array.
     def calculate_clause_output(self, X):
+        clause_output = np.zeros(shape=(clauses_count,), dtype=np.int8)
         for j in range(self.clauses_count):
-            self.clause_output[j] = 1
+            clause_output[j] = 1
             for k in range(self.feature_count):
                 if (self.action[j, k] == 1 and X[k] == 0) or \
                         (self.inverting_action[j, k] == 1 and X[k] == 1):
-                    self.clause_output[j] = 0
+                    clause_output[j] = 0
+        return clause_output
 
     # Sum up the votes for each class (this is the multiclass version of the Tsetlin Machine)
-    def sum_up_class_votes(self):
+    def sum_up_class_votes(self, clause_output):
         class_sum = np.zeros(shape=(class_count,), dtype=np.int32)
         for target_class in range(self.class_count):
             for j in range(self.clauses_per_class):
                 global_clause_index = self.get_clause_index(target_class, j)
                 # global_clause_index = self.global_clause_index[target_class, j]
                 class_sum[target_class] += \
-                    self.clause_output[global_clause_index] * \
+                    clause_output[global_clause_index] * \
                     self.get_clause_sign(j)
                     #self.clause_sign[target_class, j]
             if class_sum[target_class] > self.threshold:
@@ -124,13 +125,13 @@ class MultiClassTsetlinMachine:
         ### Calculate Clause Output ###
         ###############################
 
-        self.calculate_clause_output(X)
+        clause_outputs = self.calculate_clause_output(X)
 
         ###########################
         ### Sum up Clause Votes ###
         ###########################
 
-        class_sum = self.sum_up_class_votes()
+        class_sum = self.sum_up_class_votes(clause_outputs)
 
         ##########################################
         ### Identify Class with Largest Output ###
@@ -161,13 +162,13 @@ class MultiClassTsetlinMachine:
 
             for j in range(self.feature_count):
                 Xi[j] = X[l, j]
-            self.calculate_clause_output(Xi)
+            clause_outputs = self.calculate_clause_output(Xi)
 
             ###########################
             ### Sum up Clause Votes ###
             ###########################
 
-            class_sum = self.sum_up_class_votes()
+            class_sum = self.sum_up_class_votes(clause_outputs)
 
             ##########################################
             ### Identify Class with Largest Output ###
@@ -229,13 +230,13 @@ class MultiClassTsetlinMachine:
         ### Calculate Clause Output ###
         ###############################
 
-        self.calculate_clause_output(X)
+        clause_outputs = self.calculate_clause_output(X)
 
         ###########################
         ### Sum up Clause Votes ###
         ###########################
 
-        class_sum = self.sum_up_class_votes()
+        class_sum = self.sum_up_class_votes(clause_outputs)
 
         #####################################
         ### Calculate Feedback to Clauses ###
@@ -278,7 +279,7 @@ class MultiClassTsetlinMachine:
 
         # The reshape trick allows us to multiply the rows of a 2D matrix,
         # with the rows of the 1D clause_output.
-        clause_matrix = self.clause_output.reshape(-1, 1)
+        clause_matrix = clause_outputs.reshape(-1, 1)
         inv_clause_matrix = clause_matrix ^ 1
         feedback_matrix = self.feedback_to_clauses.reshape(-1, 1)
         pos_feedback_matrix = (feedback_matrix > 0)
