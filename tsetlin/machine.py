@@ -287,8 +287,9 @@ class TsetlinMachine2:
         low_prob = self._low_probability().int()
         high_prob = self._high_probability().int()
 
-        # The reshape trick allows us to multiply the rows of a 2D matrix,
-        # with the rows of the 1D clause_output.
+        # PyTorch does not (yet) properly implement NumPy style
+        # broadcasting, so we fake it using the 'expand_as' method, which
+        # essentially is broadcasting done by hand.
         clause_matrix = clause_outputs.expand_as(low_prob).int()
         inv_clause_matrix = clause_matrix ^ 1
         feedback_matrix = feedback_to_clauses
@@ -302,13 +303,13 @@ class TsetlinMachine2:
         neg_low_delta = inv_clause_matrix.expand_as(low_prob) & low_prob
 
         # delta = pos_delta - neg_delta
-        pos_delta = clause_matrix * (X.expand_as(high_prob) & high_prob)
-        neg_delta = clause_matrix * (inv_X.expand_as(low_prob) & low_prob)
+        pos_delta = clause_matrix & (X.expand_as(high_prob) & high_prob)
+        neg_delta = clause_matrix & (inv_X.expand_as(low_prob) & low_prob)
         #delta = clause_matrix * (X * high_prob - inv_X * low_prob)
 
         # delta_inv = pos_delta_inv - neg_delta-inv
-        pos_delta_inv = clause_matrix * (inv_X.expand_as(high_prob) & high_prob)
-        neg_delta_inv = clause_matrix * (X.expand_as(low_prob) & low_prob)
+        pos_delta_inv = clause_matrix & (inv_X.expand_as(high_prob) & high_prob)
+        neg_delta_inv = clause_matrix & (X.expand_as(low_prob) & low_prob)
 
         ########### No low_prob or high_prob after here
 
