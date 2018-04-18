@@ -1,7 +1,7 @@
 import numpy as np
 import time
 import torch
-use_cuda = torch.cuda.is_available()
+use_cuda = False  # torch.cuda.is_available()
 if use_cuda:
     print('using GPU (CUDA)')
     from torch.cuda import IntTensor, ByteTensor, CharTensor, FloatTensor
@@ -35,10 +35,10 @@ class TsetlinMachine2:
         #    input feature index
         #
         polarities = 2
+        self.clause_shape = (polarities, class_count,
+                             self.clauses_per_class // polarities, 1)
         action_shape = (polarities, class_count,
                              self.clauses_per_class // polarities, feature_count)
-        clause_shape = (polarities, class_count,
-                             self.clauses_per_class // polarities, 1)
         self.automata = torch.IntTensor(*action_shape).random_(states, states + 2)
         self.inv_automata = torch.IntTensor(*action_shape).random_(states, states + 2)
         self.action = torch.IntTensor(*action_shape)
@@ -110,10 +110,7 @@ class TsetlinMachine2:
         #   (2) conjunction of used, inverted inputs
         clause_result = conjunction & inv_conjunction
         assert isinstance(clause_result, ByteTensor), str(type(clause_result))
-
-        clause_shape = (2, self.class_count, self.clauses_per_class // 2, 1)
-
-        return clause_result.view(*clause_shape)
+        return clause_result.view(*self.clause_shape)
 
     def sum_up_class_votes(self, clause_outputs: ByteTensor) -> IntTensor:
         """Add up votes for all classes.
@@ -129,11 +126,8 @@ class TsetlinMachine2:
             shape = (self.class_count, ), integer sum of votes for each class.
 
         """
-        clause_shape = (2, self.class_count, self.clauses_per_class // 2, 1)
-
         assert isinstance(clause_outputs, ByteTensor)
-        assert clause_outputs.shape == clause_shape
-
+        assert clause_outputs.shape == self.clause_shape
 
         ##### (polarity, class, clause_in_half_class, feature)
 
@@ -164,9 +158,7 @@ class TsetlinMachine2:
         assert input.shape == (self.feature_count, )
 
         clause_outputs = self.evaluate_clauses(input)
-        clause_shape = (2, self.class_count, self.clauses_per_class // 2, 1)
-        assert clause_outputs.shape == clause_shape
-
+        assert clause_outputs.shape == self.clause_shape
 
         class_votes = self.sum_up_class_votes(clause_outputs)
         assert class_votes.shape == (self.class_count, )
@@ -249,10 +241,8 @@ class TsetlinMachine2:
         ###############################
         ### Calculate Clause Output ###
         ###############################
-        clause_shape = (2, self.class_count, self.clauses_per_class // 2, 1)
-
         clause_outputs = self.evaluate_clauses(input)
-        assert clause_outputs.shape == clause_shape
+        assert clause_outputs.shape == self.clause_shape
 
         ###########################
         ### Sum up Clause Votes ###
@@ -272,7 +262,7 @@ class TsetlinMachine2:
         #####################################
 
         # Initialize feedback to clauses
-        feedback_to_clauses = IntTensor(*clause_shape).zero_()
+        feedback_to_clauses = IntTensor(*self.clause_shape).zero_()
 
         # Process target
         feedback_rand = FloatTensor(2, self.clauses_per_class // 2, 1).uniform_()
