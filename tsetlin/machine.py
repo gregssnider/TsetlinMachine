@@ -299,17 +299,15 @@ class TsetlinMachine2:
         # the commented out code just below it
         X = input.int()
         inv_X = (input ^ 1).int()
-        low_delta = inv_clause_matrix * (-1 * low_prob)
+        neg_low_delta = inv_clause_matrix * low_prob
         delta = clause_matrix * (X * high_prob - inv_X * low_prob)
         delta_neg = clause_matrix * (X * (-1 * low_prob) + inv_X * high_prob)
 
-        self.automata += pos_feedback_matrix * (low_delta + delta) + \
-                         neg_feedback_matrix * (clause_matrix * inv_X * (
-            (self.action ^ 1).int()))
+        self.automata += pos_feedback_matrix * (delta - neg_low_delta) + \
+                         neg_feedback_matrix * (clause_matrix * inv_X * ((self.action ^ 1).int()))
 
-        self.inv_automata += pos_feedback_matrix * (low_delta + delta_neg) + \
-                             neg_feedback_matrix * clause_matrix * X * (
-                                 (self.inv_action ^ 1).int())
+        self.inv_automata += pos_feedback_matrix * (delta_neg - neg_low_delta) + \
+                             neg_feedback_matrix * clause_matrix * X * ((self.inv_action ^ 1).int())
 
         self.automata.clamp(1, 2 * self.states)
         self.inv_automata.clamp(1, 2 * self.states)
