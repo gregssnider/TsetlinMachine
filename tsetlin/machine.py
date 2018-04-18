@@ -301,13 +301,8 @@ class TsetlinMachine2:
         X = input.int()
         inv_X = (input ^ 1).int()
         neg_low_delta = inv_clause_matrix.expand_as(low_prob) & low_prob
-
-        # delta = pos_delta - neg_delta
         pos_delta = clause_matrix & (X.expand_as(high_prob) & high_prob)
         neg_delta = clause_matrix & (inv_X.expand_as(low_prob) & low_prob)
-        #delta = clause_matrix * (X * high_prob - inv_X * low_prob)
-
-        # delta_inv = pos_delta_inv - neg_delta-inv
         pos_delta_inv = clause_matrix & (inv_X.expand_as(high_prob) & high_prob)
         neg_delta_inv = clause_matrix & (X.expand_as(low_prob) & low_prob)
 
@@ -316,14 +311,10 @@ class TsetlinMachine2:
         self.automata += pos_feedback_matrix * pos_delta
         self.automata -= pos_feedback_matrix * (neg_delta + neg_low_delta)
         self.automata += neg_feedback_matrix * (clause_matrix * inv_X * ((self.action ^ 1).int()))
-        #self.automata += pos_feedback_matrix * (pos_delta - neg_delta - neg_low_delta) + \
-        #                 neg_feedback_matrix * (clause_matrix * inv_X * ((self.action ^ 1).int()))
 
         self.inv_automata += pos_feedback_matrix * pos_delta_inv
         self.inv_automata -= pos_feedback_matrix * (neg_delta_inv + neg_low_delta)
         self.inv_automata += neg_feedback_matrix * clause_matrix * X * ((self.inv_action ^ 1).int())
-        #self.inv_automata += pos_feedback_matrix * (pos_delta_inv - neg_delta_inv - neg_low_delta) + \
-        #                     neg_feedback_matrix * clause_matrix * X * ((self.inv_action ^ 1).int())
 
         self.automata.clamp(1, 2 * self.states)
         self.inv_automata.clamp(1, 2 * self.states)
