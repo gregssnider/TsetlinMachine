@@ -1,7 +1,7 @@
 import numpy as np
 import time
 import torch
-use_cuda = False #torch.cuda.is_available()
+use_cuda = False # torch.cuda.is_available()
 if use_cuda:
     print('using GPU')
     from torch.cuda import IntTensor, ByteTensor, CharTensor, FloatTensor
@@ -107,8 +107,14 @@ class TsetlinMachine2:
         # number of remaining bits equals the number of bits in used_bits for
         # that clause, then the conjunction of the non-inverting bits is True.
         masked_input = used_bits & input.expand_as(used_bits)
+
+        used_row_sums = used_bits.int().sum(1)
+        masked_input_row_sums = masked_input.int().sum(1)
+        '''
         used_row_sums = torch.sum(used_bits.int(), 1)
         masked_input_row_sums = torch.sum(masked_input.int(), 1)
+        '''
+
         conjunction = used_row_sums.eq(masked_input_row_sums)
         assert type(conjunction) == ByteTensor, str(type(conjunction))
 
@@ -116,8 +122,13 @@ class TsetlinMachine2:
         inv_input = ~input
         inv_used_bits = self.inv_action.view(-1, self.feature_count)
         inv_masked_input = inv_used_bits & inv_input.expand_as(inv_used_bits)
+
+        inv_used_row_sums = inv_used_bits.int().sum(1)
+        inv_masked_input_row_sums = inv_masked_input.int().sum(1)
+        '''
         inv_used_row_sums = torch.sum(inv_used_bits.int(), 1)
         inv_masked_input_row_sums = torch.sum(inv_masked_input.int(), 1)
+        '''
         inv_conjunction = inv_used_row_sums.eq(inv_masked_input_row_sums)
 
         # The final output of each clause is the conjunction of:
@@ -163,10 +174,16 @@ class TsetlinMachine2:
         votes = (positive - negative).view(self.class_count, -1)
 
         # The votes are spread evenly across the classes.
+        class_votes = votes.sum(dim=1)
+        '''
         class_votes = torch.sum(votes, dim=1)
+        '''
 
         ########################################## Do we need this clamp ?????????????
+        class_votes = class_votes.clamp(-self.threshold, self.threshold)
+        '''
         class_votes = torch.clamp(class_votes, -self.threshold, self.threshold)
+        '''
         assert class_votes.shape == (self.class_count, )
         return class_votes
 
@@ -190,7 +207,10 @@ class TsetlinMachine2:
         class_votes = self.sum_up_class_votes(clause_outputs)
         assert class_votes.shape == (self.class_count, )
 
+        value, index = class_votes.max(0)
+        '''
         value, index = torch.max(class_votes, 0)
+        '''
         return index
 
     def evaluate(self, inputs: np.ndarray, targets: np.ndarray, notused) -> float:
