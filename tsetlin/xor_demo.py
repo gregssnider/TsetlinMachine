@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import time
+import tsetlin
 from tsetlin.machine import TsetlinMachine2
 
 if __name__ == '__main__':
@@ -24,6 +25,12 @@ if __name__ == '__main__':
     y_training = torch.from_numpy(training_data[:, 12].astype(np.int32))
     X_test = torch.from_numpy(test_data[:, 0:12].astype(np.uint8))
     y_test = torch.from_numpy(test_data[:, 12].astype(np.int32))
+
+    if tsetlin.machine.use_cuda:
+        X_training = X_training.cuda()
+        y_training = y_training.cuda()
+        X_test = X_test.cuda()
+        y_test = y_test.cuda()
 
     print("Noisy XOR")
     sum_accuracy = 0

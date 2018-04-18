@@ -1,27 +1,14 @@
 import numpy as np
-import torch
-from torch import IntTensor, ByteTensor, CharTensor, FloatTensor
 import time
-import sys
-import numba
+import torch
+use_cuda = False #torch.cuda.is_available()
+if use_cuda:
+    print('using GPU')
+    from torch.cuda import IntTensor, ByteTensor, CharTensor, FloatTensor
+else:
+    from torch import IntTensor, ByteTensor, CharTensor, FloatTensor
 
 
-
-spec = [
-    ('class_count', numba.int32),
-    ('clause_count', numba.int32),
-    ('feature_count', numba.int32),
-    ('states', numba.int32),
-    ('s', numba.float64),
-    ('threshold', numba.int32),
-    ('clauses_per_class', numba.int32),
-    ('automata', numba.int32[:, :, :, :]),  # indices: [clause, feature]
-    ('inv_automata', numba.int32[:, :, :, :]),  # indices: [clause, feature]
-    ('action', numba.int32[:, :, :, :]),  # indices: [clause, feature]
-    ('inv_action', numba.int32[:, :, :, :]),  # indices: [clause, feature]
-]
-
-#@numba.jitclass(spec)
 class TsetlinMachine2:
     """The Tsetlin Machine.
 
@@ -47,25 +34,26 @@ class TsetlinMachine2:
         #    input feature index
         #
         polarities = 2
-        '''
-        self.action_shape = (polarities, class_count,
-                             self.clauses_per_class // polarities, feature_count)
-        self.clause_shape = (polarities, class_count,
-                             self.clauses_per_class // 2)
-        '''
         action_shape = (polarities, class_count,
                              self.clauses_per_class // polarities, feature_count)
         clause_shape = (polarities, class_count,
                              self.clauses_per_class // polarities, 1)
-        self.automata = IntTensor(*action_shape).random_(states, states + 2)
-        self.inv_automata = IntTensor(*action_shape).random_(states, states + 2)
-        self.action = IntTensor(*action_shape)
-        self.inv_action = IntTensor(*action_shape)
+        self.automata = torch.IntTensor(*action_shape).random_(states, states + 2)
+        self.inv_automata = torch.IntTensor(*action_shape).random_(states, states + 2)
+        self.action = torch.IntTensor(*action_shape)
+        self.inv_action = torch.IntTensor(*action_shape)
         self.update_action()
+
+        if use_cuda:
+            self.automata = self.automata.cuda()
+            self.inv_automata = self.inv_automata.cuda()
+            self.action = self.action.cuda()
+            self.inv_action = self.inv_action.cuda()
 
         assert isinstance(self.automata, IntTensor), type(self.automata)
         assert isinstance(self.inv_automata, IntTensor)
 
+    '''
     def __str__(self):
         string = 'TsetlinMachine2\n'
         string += '  automata\n'
@@ -77,13 +65,14 @@ class TsetlinMachine2:
         string += '  inv_action\n'
         string += str(self.inv_action)
         return string
+    '''
 
     def cuda(self):
         if torch.cuda.is_available():
             self.automata = self.automata.cuda()
             self.inv_automata = self.inv_automata.cuda()
             self.action = self.action.cuda()
-            self.inv_action = self.inaction.cuda()
+            self.inv_action = self.inv_action.cuda()
 
 
     def update_action(self):
@@ -243,7 +232,8 @@ class TsetlinMachine2:
             shape: action.shape
         """
         action_shape = self.action.shape
-        return torch.rand(action_shape) <= 1.0 / self.s
+        #return torch.rand(action_shape) <= 1.0 / self.s
+        return FloatTensor(*action_shape).uniform_() <= 1.0 / self.s
 
     def _high_probability(self) -> ByteTensor:
         """Compute an array of high probabilities.
@@ -255,99 +245,8 @@ class TsetlinMachine2:
             shape: action_shape
         """
         action_shape = self.action.shape
-        return torch.rand(action_shape) <= (self.s - 1.0) / self.s
-
-
-    def type_1_feedback(self, target_class: int, clause_outputs: ByteTensor,
-                        input: ByteTensor) -> IntTensor:
-        """
-
-        This comes directly from Table 2 in the paper.
-
-        *********************************************************
-        NOTE: This is a great candidate for Tensor Comprehensions
-        *********************************************************
-
-        Args:
-            target_class:
-            clause_outputs:
-            input:
-
-        Returns:
-
-        """
-        assert clause_outputs.shape == (self.clause_count, )
-        assert input.shape == (self.feature_count, )
-
-        # Get everything into matrix form with the same shapes:
-        #   self.clauses_per_class // 2, self.feature_count)
-        matrix_shape = (self.clauses_per_class // 2, self.feature_count)
-        action = self.action[0, target_class]
-        not_action = action ^ 1
-        low_prob = self._low_probability(*matrix_shape)
-        high_prob = self._high_probability(*matrix_shape)
-        input_matrix = input.clone()
-        input_matrix.expand(*matrix_shape)
-        not_input_matrix = input_matrix ^ 1
-        clause_matrix = clause_outputs[0, target_class]
-        clause_matrix.unsqueeze(-1)
-        clause_matrix.expand(*matrix_shape)
-        not_clause_matrix = clause_matrix ^ 1
-
-        # The first column of Table 2 is an increment of automata state, even
-        # though it's shown as a combination of penalty and reward.
-        increment = clause_matrix & input_matrix & high_prob
-
-        # The other three columns of Table 2 are decrements of automata state.
-        decrement = ((clause_matrix & not_action & not_input_matrix & low_prob)
-                     | not_clause_matrix)
-
-        # The deltas for the automata are mostly 0's with 1's and -1's
-        # sprinkled around.
-        deltas = increment.int() - decrement.int()
-        return deltas
-
-    def type_2_feedback(self, target_class: int, clause_outputs: ByteTensor,
-                        input: ByteTensor) -> IntTensor:
-        """
-
-        This comes directly from Table 3 in the paper.
-
-        *********************************************************
-        NOTE: This is a great candidate for Tensor Comprehensions
-        *********************************************************
-
-        Args:
-            target_class:
-            clause_outputs:
-            input:
-
-        Returns:
-
-        """
-        assert clause_outputs.shape == (self.clause_count, )
-        assert input.shape == (self.feature_count, )
-
-        # Get everything into matrix form with the same shapes:
-        #   self.clauses_per_class // 2, self.feature_count)
-        matrix_shape = (self.clauses_per_class // 2, self.feature_count)
-        action = self.action[0, target_class]
-        not_action = action ^ 1
-        input_matrix = input.clone()
-        input_matrix.expand(*matrix_shape)
-        not_input_matrix = input_matrix ^ 1
-        clause_matrix = clause_outputs[0, target_class]
-        clause_matrix.unsqueeze(-1)
-        clause_matrix.expand(*matrix_shape)
-
-        # The first column of Table 2 is an increment of automata state, even
-        # though it's shown as a combination of penalty and reward.
-        increment = clause_matrix & not_input_matrix & not_action
-
-        # The deltas for the automata are mostly 0's with 1's
-        # sprinkled around.
-        deltas = increment.int()
-        return deltas
+        #return torch.rand(action_shape) <= (self.s - 1.0) / self.s
+        return FloatTensor(*action_shape).uniform_() <= (self.s - 1.0) / self.s
 
     def train(self, input: ByteTensor, target_class: int):
         """Train the machine with a single example.
@@ -400,18 +299,22 @@ class TsetlinMachine2:
         #feedback_to_clauses = np.zeros(shape=clause_shape, dtype=np.int32)
 
         # Process target
-        feedback_rand = torch.rand(2, self.clauses_per_class // 2, 1)
-        #feedback_rand = FloatTensor(2, self.clauses_per_class // 2, 1).random_(0, 1)
+        #feedback_rand = torch.rand(2, self.clauses_per_class // 2, 1)
+        feedback_rand = FloatTensor(2, self.clauses_per_class // 2, 1).uniform_()
         #feedback_rand = np.random.random((2, self.clauses_per_class // 2, 1))
 
-        feedback_threshold = feedback_rand <= (
-                    1.0 / (self.threshold * 2)) *  (self.threshold - class_sum[target_class])
+        feedback_threshold = (feedback_rand <= (
+                    1.0 / (self.threshold * 2)) *  (self.threshold - class_sum[target_class])).int()
+
+        # print(type(feedback_threshold))
+        # print(type(feedback_to_clauses))
+
         feedback_to_clauses[0, target_class] += feedback_threshold[0].int()
         feedback_to_clauses[1, target_class] -= feedback_threshold[1].int()
 
         # Process negative target
-        feedback_rand = torch.rand(2, self.clauses_per_class // 2, 1)
-        #feedback_rand = FloatTensor(2, self.clauses_per_class // 2, 1).random_(0, 1)
+        #feedback_rand = torch.rand(2, self.clauses_per_class // 2, 1)
+        feedback_rand = FloatTensor(2, self.clauses_per_class // 2, 1).uniform_()
         #feedback_rand = np.random.random((2, self.clauses_per_class // 2, 1))
 
         feedback_threshold = feedback_rand <= (
@@ -451,69 +354,6 @@ class TsetlinMachine2:
         self.inv_automata += pos_feedback_matrix * (low_delta + delta_neg) + \
                              neg_feedback_matrix * clause_matrix * X * (
                                  (self.inv_action ^ 1).int())
-        #-----------------------------------------------------------------------------------
-
-
-        '''
-        #####################################
-        ### Calculate Feedback to Clauses ###
-        #####################################
-
-        # Positive polarity clauses
-
-
-        # Negative polarity clauses
-
-
-        # Initialize feedback to clauses
-        feedback_to_clauses = IntTensor(*self.clause_shape).zero_()
-
-        # Process target -- random selection of target clauses to update
-        thresh = (1.0 / (self.threshold * 2)) * (self.threshold - votes[target_class])
-        target_feedback = (torch.rand((2, self.clauses_per_class // 2)) <= thresh).int()
-        
-        feedback_to_clauses[0, target_class] += target_feedback[0]
-        feedback_to_clauses[1, target_class] -= target_feedback[1]
-
-        # Process anti-target -- random selection of anti target clauses to update
-        thresh = (1.0 / (self.threshold * 2)) * (self.threshold + votes[target_class])
-        anti_target_feedback = (torch.rand((2, self.clauses_per_class // 2)) <= thresh).int()
-        feedback_to_clauses[0, target_class] -= anti_target_feedback[0]
-        feedback_to_clauses[1, target_class] += anti_target_feedback[1]
-
-        #################################
-        ### Train Individual Automata ###
-        #################################
-        low_prob = self._low_probability(self.clause_count, self.feature_count)
-        high_prob = self._high_probability(self.clause_count, self.feature_count)
-
-
-        # The reshape trick allows us to multiply the rows of a 2D matrix,
-        # with the rows of the 1D clause_output.
-        clause_matrix = clause_outputs.view(-1, 1)
-        inv_clause_matrix = clause_matrix ^ 1
-        feedback_matrix = feedback_to_clauses.view(-1, 1)
-        pos_feedback_matrix = (feedback_matrix > 0)
-        neg_feedback_matrix = (feedback_matrix < 0)
-
-        assert low_prob.shape == (self.clause_count, self.feature_count)
-        assert clause_matrix.shape == (self.clause_count, 1)
-
-        # Vectorization -- this is essentially unreadable. It replaces
-        # the commented out code just below it
-        low_delta = inv_clause_matrix * (-1 * low_prob)
-        delta =  clause_matrix * (input * high_prob - (1-input) * low_prob)
-        delta_neg = clause_matrix * (-1 * input * low_prob + (1 - input) * high_prob)
-
-        not_action_include = self.automata <= self.states
-        not_action_include_negated = self.inv_automata <= self.states
-
-        self.automata += (pos_feedback_matrix * (low_delta + delta) +
-            neg_feedback_matrix * (clause_matrix * (1 - input) * (not_action_include))).int()
-
-        self.inv_automata += (pos_feedback_matrix * (low_delta + delta_neg) +
-            neg_feedback_matrix * clause_matrix * input * (not_action_include_negated)).int()
-        '''
 
         self.automata.clamp(1, 2 * self.states)
         self.inv_automata.clamp(1, 2 * self.states)
@@ -550,60 +390,6 @@ class TsetlinMachine2:
                 Xi = X[example_id]
                 self.train(Xi, target_class)
         return
-
-
-if __name__ == '__main__':
-    # Parameters for the Tsetlin Machine
-    T = 15
-    s = 3.9
-    number_of_clauses = 20
-    states = 100
-
-    # Parameters of the pattern recognition problem
-    number_of_features = 12
-    number_of_classes = 2
-
-    # Training configuration
-    epochs = 200
-
-    # Loading of training and test data
-    training_data = torch.from_numpy(
-        np.loadtxt("../data/noisy_xor/NoisyXORTrainingData.txt").astype(dtype=np.uint8))
-    test_data = torch.from_numpy(
-        np.loadtxt("../data/noisy_xor/NoisyXORTestData.txt").astype(dtype=np.int32))
-
-    '''
-    if torch.cuda.is_available():
-        training_data = training_data.cuda()
-        test_data = test_data.cuda()
-    '''
-
-
-
-    X_training = training_data[:, 0:12]  # Input features
-    y_training = training_data[:, 12]  # Target value
-    X_test = test_data[:, 0:12]  # Input features
-    y_test = test_data[:, 12]  # Target value
-
-    print("Noisy XOR")
-    sum_accuracy = 0
-    steps = 50
-    for step in range(steps):
-        start_time = time.time()
-        '''
-        tsetlin_machine = MultiClassTsetlinMachine(
-            number_of_classes, number_of_clauses, number_of_features, states, s, T)
-        '''
-        tsetlin_machine = TsetlinMachine2(
-            number_of_classes, number_of_clauses, number_of_features, states, s, T)
-        tsetlin_machine.fit(X_training, y_training, y_training.shape[0], epochs)
-        elapsed_time = time.time() - start_time
-        accuracy = tsetlin_machine.evaluate(X_test, y_test, y_test.shape[0])
-        print("  ", step," Accuracy on test data (no noise):", accuracy,
-              ', elapsed time:', elapsed_time)
-        sum_accuracy += accuracy
-    print('Avg accuracy', sum_accuracy / steps)
-
 
 '''
 
