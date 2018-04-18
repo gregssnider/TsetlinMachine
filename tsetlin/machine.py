@@ -561,8 +561,8 @@ if __name__ == '__main__':
     epochs = 200
 
     # Loading of training and test data
-    training_data = np.loadtxt("NoisyXORTrainingData.txt").astype(dtype=np.int8)
-    test_data = np.loadtxt("NoisyXORTestData.txt").astype(dtype=np.int8)
+    training_data = np.loadtxt("../data/noisy_xor/NoisyXORTrainingData.txt").astype(dtype=np.int8)
+    test_data = np.loadtxt("../data/noisy_xor/NoisyXORTestData.txt").astype(dtype=np.int8)
     X_training = training_data[:, 0:12]  # Input features
     y_training = training_data[:, 12]  # Target value
     X_test = test_data[:, 0:12]  # Input features

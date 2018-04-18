@@ -1,8 +1,7 @@
 import numpy as np
 import torch
 from torch import ByteTensor, IntTensor
-#from tsetlin_machine import TsetlinMachine#
-from tsetlin_machine2 import TsetlinMachine2
+from tsetlin.machine import TsetlinMachine2
 
 
 def test_constructor():
