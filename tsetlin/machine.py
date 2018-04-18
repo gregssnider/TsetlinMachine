@@ -310,12 +310,10 @@ class TsetlinMachine2:
 
         # type 1 feedback
         self.automata += (pos_feedback_matrix & pos_delta).int()
-        self.automata -= (pos_feedback_matrix & neg_delta).int()
-        self.automata -= (pos_feedback_matrix & neg_low_delta).int()
+        self.automata -= ((pos_feedback_matrix & neg_delta) | (pos_feedback_matrix & neg_low_delta)).int()
 
         self.inv_automata += (pos_feedback_matrix & pos_delta_inv).int()
-        self.inv_automata -= (pos_feedback_matrix & neg_delta_inv).int()
-        self.inv_automata -= (pos_feedback_matrix & neg_low_delta).int()
+        self.inv_automata -= ((pos_feedback_matrix & neg_delta_inv) | (pos_feedback_matrix & neg_low_delta)).int()
 
         # type 2 feedback
         self.automata += (neg_feedback_matrix & (clause_matrix & inv_X & ((self.action ^ 1)))).int()
