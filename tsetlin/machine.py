@@ -1,7 +1,7 @@
 import numpy as np
 import time
 import torch
-use_cuda = False  # torch.cuda.is_available()
+use_cuda = torch.cuda.is_available()
 if use_cuda:
     print('using GPU (CUDA)')
     from torch.cuda import IntTensor, ByteTensor, CharTensor, FloatTensor
