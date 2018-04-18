@@ -299,7 +299,7 @@ class TsetlinMachine2:
         # the commented out code just below it
         X = input.int()
         inv_X = (input ^ 1).int()
-        neg_low_delta = inv_clause_matrix * low_prob
+        neg_low_delta = inv_clause_matrix.expand_as(low_prob) & low_prob
 
         # delta = pos_delta - neg_delta
         pos_delta = clause_matrix * (X * high_prob)
@@ -309,6 +309,8 @@ class TsetlinMachine2:
         # delta_inv = pos_delta_inv - neg_delta-inv
         pos_delta_inv = clause_matrix * (inv_X * high_prob)
         neg_delta_inv = clause_matrix * (X * low_prob)
+
+        ########### No low_prob or high_prob after here
 
         self.automata += pos_feedback_matrix * pos_delta
         self.automata -= pos_feedback_matrix * (neg_delta + neg_low_delta)
