@@ -293,22 +293,20 @@ class TsetlinMachine2:
         clause_matrix = clause_outputs.expand_as(low_prob)
         inv_clause_matrix = clause_matrix ^ 1
         feedback_matrix = feedback_to_clauses
-        pos_feedback_matrix = (feedback_matrix > 0)
-        neg_feedback_matrix = (feedback_matrix < 0)
+        pos_feedback_matrix = (feedback_matrix > 0).expand_as(low_prob)
+        neg_feedback_matrix = (feedback_matrix < 0).expand_as(low_prob)
 
         # Vectorization -- this is essentially unreadable. It replaces
         # the commented out code just below it
         X = input.expand_as(low_prob)
-        inv_X = (input ^ 1)
-        neg_low_delta = inv_clause_matrix.expand_as(low_prob) & low_prob
-        pos_delta = clause_matrix & (X.expand_as(high_prob) & high_prob)
-        neg_delta = clause_matrix & (inv_X.expand_as(low_prob) & low_prob)
-        pos_delta_inv = clause_matrix & (inv_X.expand_as(high_prob) & high_prob)
-        neg_delta_inv = clause_matrix & (X.expand_as(low_prob) & low_prob)
+        inv_X = (input ^ 1).expand_as(low_prob)
+        neg_low_delta = inv_clause_matrix & low_prob
+        pos_delta = clause_matrix & X & high_prob
+        neg_delta = clause_matrix & inv_X & low_prob
+        pos_delta_inv = clause_matrix & inv_X & high_prob
+        neg_delta_inv = clause_matrix & X & low_prob
 
         ########### No low_prob or high_prob after here
-        pos_feedback_matrix = pos_feedback_matrix.expand_as(low_prob)
-        neg_feedback_matrix = neg_feedback_matrix.expand_as(low_prob)
 
         self.automata += (pos_feedback_matrix & pos_delta).int()
         self.automata -= (pos_feedback_matrix & neg_delta).int()
