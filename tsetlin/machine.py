@@ -1,11 +1,12 @@
 import numpy as np
 import time
 import torch
-use_cuda = False # torch.cuda.is_available()
+use_cuda = False  # torch.cuda.is_available()
 if use_cuda:
-    print('using GPU')
+    print('using GPU (CUDA)')
     from torch.cuda import IntTensor, ByteTensor, CharTensor, FloatTensor
 else:
+    print('using CPU')
     from torch import IntTensor, ByteTensor, CharTensor, FloatTensor
 
 
@@ -45,27 +46,9 @@ class TsetlinMachine2:
         self.update_action()
 
         if use_cuda:
-            self.automata = self.automata.cuda()
-            self.inv_automata = self.inv_automata.cuda()
-            self.action = self.action.cuda()
-            self.inv_action = self.inv_action.cuda()
-
+            self.cuda()
         assert isinstance(self.automata, IntTensor), type(self.automata)
         assert isinstance(self.inv_automata, IntTensor)
-
-    '''
-    def __str__(self):
-        string = 'TsetlinMachine2\n'
-        string += '  automata\n'
-        string += str(self.automata)
-        string += '  inv_automata\n'
-        string += str(self.inv_automata)
-        string += '  action\n'
-        string += str(self.action)
-        string += '  inv_action\n'
-        string += str(self.inv_action)
-        return string
-    '''
 
     def cuda(self):
         if torch.cuda.is_available():
@@ -73,7 +56,6 @@ class TsetlinMachine2:
             self.inv_automata = self.inv_automata.cuda()
             self.action = self.action.cuda()
             self.inv_action = self.inv_action.cuda()
-
 
     def update_action(self):
         """Update the actions from the automata, needed after learning."""
@@ -110,10 +92,6 @@ class TsetlinMachine2:
 
         used_row_sums = used_bits.int().sum(1)
         masked_input_row_sums = masked_input.int().sum(1)
-        '''
-        used_row_sums = torch.sum(used_bits.int(), 1)
-        masked_input_row_sums = torch.sum(masked_input.int(), 1)
-        '''
 
         conjunction = used_row_sums.eq(masked_input_row_sums)
         assert type(conjunction) == ByteTensor, str(type(conjunction))
@@ -125,10 +103,6 @@ class TsetlinMachine2:
 
         inv_used_row_sums = inv_used_bits.int().sum(1)
         inv_masked_input_row_sums = inv_masked_input.int().sum(1)
-        '''
-        inv_used_row_sums = torch.sum(inv_used_bits.int(), 1)
-        inv_masked_input_row_sums = torch.sum(inv_masked_input.int(), 1)
-        '''
         inv_conjunction = inv_used_row_sums.eq(inv_masked_input_row_sums)
 
         # The final output of each clause is the conjunction of:
@@ -165,25 +139,15 @@ class TsetlinMachine2:
 
         # We split the clauses into positive polarity and negative polarity,
         # then compute the polarity-weighted votes.
-        #
-        # clause_outputs.shape = (2, classes, clauses_per_class // 2, 1)
-        #clause_outputs = clause_outputs.view(2, -1, 1)
-        #assert clause_outputs.shape == (2, self.clause_count // 2, 1)
         positive = clause_outputs[0].int()  # shape(classes, clauses_per_class // 2, 1)
         negative = clause_outputs[1].int()
         votes = (positive - negative).view(self.class_count, -1)
 
         # The votes are spread evenly across the classes.
         class_votes = votes.sum(dim=1)
-        '''
-        class_votes = torch.sum(votes, dim=1)
-        '''
 
         ########################################## Do we need this clamp ?????????????
         class_votes = class_votes.clamp(-self.threshold, self.threshold)
-        '''
-        class_votes = torch.clamp(class_votes, -self.threshold, self.threshold)
-        '''
         assert class_votes.shape == (self.class_count, )
         return class_votes
 
@@ -208,9 +172,6 @@ class TsetlinMachine2:
         assert class_votes.shape == (self.class_count, )
 
         value, index = class_votes.max(0)
-        '''
-        value, index = torch.max(class_votes, 0)
-        '''
         return index
 
     def evaluate(self, inputs: np.ndarray, targets: np.ndarray, notused) -> float:
@@ -223,8 +184,6 @@ class TsetlinMachine2:
         Returns:
             Classification accuracy of the machine.
         """
-        #inputs = torch.from_numpy(inputs.astype(np.uint8)).byte()
-        #targets = torch.from_numpy(targets.astype(np.uint8)).int()
         assert isinstance(inputs, ByteTensor)
         assert inputs.shape[1] == self.feature_count
         assert isinstance(targets, IntTensor)
@@ -252,7 +211,6 @@ class TsetlinMachine2:
             shape: action.shape
         """
         action_shape = self.action.shape
-        #return torch.rand(action_shape) <= 1.0 / self.s
         return FloatTensor(*action_shape).uniform_() <= 1.0 / self.s
 
     def _high_probability(self) -> ByteTensor:
@@ -265,7 +223,6 @@ class TsetlinMachine2:
             shape: action_shape
         """
         action_shape = self.action.shape
-        #return torch.rand(action_shape) <= (self.s - 1.0) / self.s
         return FloatTensor(*action_shape).uniform_() <= (self.s - 1.0) / self.s
 
     def train(self, input: ByteTensor, target_class: int):
@@ -316,27 +273,16 @@ class TsetlinMachine2:
 
         # Initialize feedback to clauses
         feedback_to_clauses = IntTensor(*clause_shape).zero_()
-        #feedback_to_clauses = np.zeros(shape=clause_shape, dtype=np.int32)
 
         # Process target
-        #feedback_rand = torch.rand(2, self.clauses_per_class // 2, 1)
         feedback_rand = FloatTensor(2, self.clauses_per_class // 2, 1).uniform_()
-        #feedback_rand = np.random.random((2, self.clauses_per_class // 2, 1))
-
         feedback_threshold = (feedback_rand <= (
                     1.0 / (self.threshold * 2)) *  (self.threshold - class_sum[target_class])).int()
-
-        # print(type(feedback_threshold))
-        # print(type(feedback_to_clauses))
-
         feedback_to_clauses[0, target_class] += feedback_threshold[0].int()
         feedback_to_clauses[1, target_class] -= feedback_threshold[1].int()
 
         # Process negative target
-        #feedback_rand = torch.rand(2, self.clauses_per_class // 2, 1)
         feedback_rand = FloatTensor(2, self.clauses_per_class // 2, 1).uniform_()
-        #feedback_rand = np.random.random((2, self.clauses_per_class // 2, 1))
-
         feedback_threshold = feedback_rand <= (
                     1.0 / (self.threshold * 2)) * \
                              (self.threshold + class_sum[
@@ -391,11 +337,6 @@ class TsetlinMachine2:
         assert len(X.shape) == 2 and len(y.shape) == 1
         assert X.shape[0] == y.shape[0] == number_of_examples
         assert X.shape[1] == self.feature_count
-
-        # Convert input arrays to tensors.
-        #X = torch.from_numpy(X.astype(np.uint8))
-        #y = torch.from_numpy(y.astype(np.uint8))
-
         assert isinstance(X, ByteTensor)
         assert isinstance(y, IntTensor)
 
