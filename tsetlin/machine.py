@@ -308,18 +308,23 @@ class TsetlinMachine2:
 
         ########### No low_prob or high_prob after here
 
+        # type 1 feedback
         self.automata += (pos_feedback_matrix & pos_delta).int()
         self.automata -= (pos_feedback_matrix & neg_delta).int()
         self.automata -= (pos_feedback_matrix & neg_low_delta).int()
-        self.automata += (neg_feedback_matrix & (clause_matrix & inv_X * ((self.action ^ 1)))).int()
 
         self.inv_automata += (pos_feedback_matrix & pos_delta_inv).int()
         self.inv_automata -= (pos_feedback_matrix & neg_delta_inv).int()
         self.inv_automata -= (pos_feedback_matrix & neg_low_delta).int()
+
+        # type 2 feedback
+        self.automata += (neg_feedback_matrix & (clause_matrix & inv_X & ((self.action ^ 1)))).int()
         self.inv_automata += (neg_feedback_matrix & clause_matrix & X & ((self.inv_action ^ 1))).int()
 
+        # Keep automata in bounds [0, 2 * states]
         self.automata.clamp(1, 2 * self.states)
         self.inv_automata.clamp(1, 2 * self.states)
+
         self.update_action()
 
     def fit(self, X: np.ndarray, y: np.ndarray, number_of_examples, epochs=100):
