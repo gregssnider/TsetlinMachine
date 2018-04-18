@@ -289,7 +289,7 @@ class TsetlinMachine2:
 
         # The reshape trick allows us to multiply the rows of a 2D matrix,
         # with the rows of the 1D clause_output.
-        clause_matrix = clause_outputs.int()
+        clause_matrix = clause_outputs.expand_as(low_prob).int()
         inv_clause_matrix = clause_matrix ^ 1
         feedback_matrix = feedback_to_clauses
         pos_feedback_matrix = (feedback_matrix > 0).int()
