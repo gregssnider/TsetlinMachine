@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 import time
 from tsetlin.machine import TsetlinMachine2
 
@@ -17,12 +18,12 @@ if __name__ == '__main__':
     epochs = 200
 
     # Loading of training and test data
-    training_data = np.loadtxt("../data/noisy_xor/NoisyXORTrainingData.txt").astype(dtype=np.int8)
-    test_data = np.loadtxt("../data/noisy_xor/NoisyXORTestData.txt").astype(dtype=np.int8)
-    X_training = training_data[:, 0:12]  # Input features
-    y_training = training_data[:, 12]  # Target value
-    X_test = test_data[:, 0:12]  # Input features
-    y_test = test_data[:, 12]  # Target value
+    training_data = np.loadtxt("../data/noisy_xor/NoisyXORTrainingData.txt")
+    test_data = np.loadtxt("../data/noisy_xor/NoisyXORTestData.txt")
+    X_training = torch.from_numpy(training_data[:, 0:12].astype(np.uint8))
+    y_training = torch.from_numpy(training_data[:, 12].astype(np.int32))
+    X_test = torch.from_numpy(test_data[:, 0:12].astype(np.uint8))
+    y_test = torch.from_numpy(test_data[:, 12].astype(np.int32))
 
     print("Noisy XOR")
     sum_accuracy = 0

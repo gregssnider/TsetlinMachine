@@ -214,8 +214,8 @@ class TsetlinMachine2:
         Returns:
             Classification accuracy of the machine.
         """
-        inputs = torch.from_numpy(inputs.astype(np.uint8)).byte()
-        targets = torch.from_numpy(targets.astype(np.uint8)).int()
+        #inputs = torch.from_numpy(inputs.astype(np.uint8)).byte()
+        #targets = torch.from_numpy(targets.astype(np.uint8)).int()
         assert isinstance(inputs, ByteTensor)
         assert inputs.shape[1] == self.feature_count
         assert isinstance(targets, IntTensor)
@@ -533,11 +533,11 @@ class TsetlinMachine2:
         assert X.shape[1] == self.feature_count
 
         # Convert input arrays to tensors.
-        X = torch.from_numpy(X.astype(np.uint8))
-        y = torch.from_numpy(y.astype(np.uint8))
+        #X = torch.from_numpy(X.astype(np.uint8))
+        #y = torch.from_numpy(y.astype(np.uint8))
 
         assert isinstance(X, ByteTensor)
-        assert isinstance(y, ByteTensor)
+        assert isinstance(y, IntTensor)
 
         random_index = np.arange(number_of_examples)
         print()
@@ -567,8 +567,19 @@ if __name__ == '__main__':
     epochs = 200
 
     # Loading of training and test data
-    training_data = np.loadtxt("../data/noisy_xor/NoisyXORTrainingData.txt").astype(dtype=np.int8)
-    test_data = np.loadtxt("../data/noisy_xor/NoisyXORTestData.txt").astype(dtype=np.int8)
+    training_data = torch.from_numpy(
+        np.loadtxt("../data/noisy_xor/NoisyXORTrainingData.txt").astype(dtype=np.uint8))
+    test_data = torch.from_numpy(
+        np.loadtxt("../data/noisy_xor/NoisyXORTestData.txt").astype(dtype=np.int32))
+
+    '''
+    if torch.cuda.is_available():
+        training_data = training_data.cuda()
+        test_data = test_data.cuda()
+    '''
+
+
+
     X_training = training_data[:, 0:12]  # Input features
     y_training = training_data[:, 12]  # Target value
     X_test = test_data[:, 0:12]  # Input features
