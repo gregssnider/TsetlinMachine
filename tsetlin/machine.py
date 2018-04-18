@@ -284,22 +284,22 @@ class TsetlinMachine2:
         ### Train Individual Automata ###
         #################################
 
-        low_prob = self._low_probability().int()
-        high_prob = self._high_probability().int()
+        low_prob = self._low_probability()
+        high_prob = self._high_probability()
 
         # PyTorch does not (yet) properly implement NumPy style
         # broadcasting, so we fake it using the 'expand_as' method, which
         # essentially is broadcasting done by hand.
-        clause_matrix = clause_outputs.expand_as(low_prob).int()
+        clause_matrix = clause_outputs.expand_as(low_prob)
         inv_clause_matrix = clause_matrix ^ 1
         feedback_matrix = feedback_to_clauses
-        pos_feedback_matrix = (feedback_matrix > 0).int()
-        neg_feedback_matrix = (feedback_matrix < 0).int()
+        pos_feedback_matrix = (feedback_matrix > 0)
+        neg_feedback_matrix = (feedback_matrix < 0)
 
         # Vectorization -- this is essentially unreadable. It replaces
         # the commented out code just below it
-        X = input.int()
-        inv_X = (input ^ 1).int()
+        X = input.expand_as(low_prob)
+        inv_X = (input ^ 1)
         neg_low_delta = inv_clause_matrix.expand_as(low_prob) & low_prob
         pos_delta = clause_matrix & (X.expand_as(high_prob) & high_prob)
         neg_delta = clause_matrix & (inv_X.expand_as(low_prob) & low_prob)
@@ -307,16 +307,18 @@ class TsetlinMachine2:
         neg_delta_inv = clause_matrix & (X.expand_as(low_prob) & low_prob)
 
         ########### No low_prob or high_prob after here
+        pos_feedback_matrix = pos_feedback_matrix.expand_as(low_prob)
+        neg_feedback_matrix = neg_feedback_matrix.expand_as(low_prob)
 
-        self.automata += pos_feedback_matrix * pos_delta
-        self.automata -= pos_feedback_matrix * neg_delta
-        self.automata -= pos_feedback_matrix * neg_low_delta
-        self.automata += neg_feedback_matrix * (clause_matrix * inv_X * ((self.action ^ 1).int()))
+        self.automata += (pos_feedback_matrix & pos_delta).int()
+        self.automata -= (pos_feedback_matrix & neg_delta).int()
+        self.automata -= (pos_feedback_matrix & neg_low_delta).int()
+        self.automata += (neg_feedback_matrix & (clause_matrix & inv_X * ((self.action ^ 1)))).int()
 
-        self.inv_automata += pos_feedback_matrix * pos_delta_inv
-        self.inv_automata -= pos_feedback_matrix * neg_delta_inv
-        self.inv_automata -= pos_feedback_matrix * neg_low_delta
-        self.inv_automata += neg_feedback_matrix * clause_matrix * X * ((self.inv_action ^ 1).int())
+        self.inv_automata += (pos_feedback_matrix & pos_delta_inv).int()
+        self.inv_automata -= (pos_feedback_matrix & neg_delta_inv).int()
+        self.inv_automata -= (pos_feedback_matrix & neg_low_delta).int()
+        self.inv_automata += (neg_feedback_matrix & clause_matrix & X & ((self.inv_action ^ 1))).int()
 
         self.automata.clamp(1, 2 * self.states)
         self.inv_automata.clamp(1, 2 * self.states)
