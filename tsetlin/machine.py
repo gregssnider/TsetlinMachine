@@ -78,6 +78,13 @@ class TsetlinMachine2:
         string += str(self.inv_action)
         return string
 
+    def cuda(self):
+        if torch.cuda.is_available():
+            self.automata = self.automata.cuda()
+            self.inv_automata = self.inv_automata.cuda()
+            self.action = self.action.cuda()
+            self.inv_action = self.inaction.cuda()
+
 
     def update_action(self):
         """Update the actions from the automata, needed after learning."""
@@ -174,7 +181,7 @@ class TsetlinMachine2:
         assert class_votes.shape == (self.class_count, )
         return class_votes
 
-    def predict(self, input: ByteTensor) -> int:
+    def predict(self, input: ByteTensor) -> IntTensor:
         """Forward inference of input.
 
         Args:
@@ -195,7 +202,7 @@ class TsetlinMachine2:
         assert class_votes.shape == (self.class_count, )
 
         value, index = torch.max(class_votes, 0)
-        return index[0]
+        return index
 
     def evaluate(self, inputs: np.ndarray, targets: np.ndarray, notused) -> float:
         """Evaluate the machine on a dataset.
@@ -220,9 +227,8 @@ class TsetlinMachine2:
             if i % 100 == 0:
                 print('.', end='', flush=True)
             input = inputs[i]
-            target = targets[i]
             prediction = self.predict(input)
-            if prediction != target:
+            if prediction[0] != targets[i]:
                 errors += 1
         accuracy = (examples - errors) / examples
         return accuracy
