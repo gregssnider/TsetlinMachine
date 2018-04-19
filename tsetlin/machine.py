@@ -314,10 +314,12 @@ class TsetlinMachine2:
         clause_x_low = clauses & X & low_prob
 
         self.automata += (pos_feedback & clause_x_high).int()
-        self.automata -= ((pos_feedback & clause_notx_low) | (pos_feedback & notclause_low)).int()
+        self.automata -= (pos_feedback & clause_notx_low).int()
+        self.automata -= (pos_feedback & notclause_low).int()
 
         self.inv_automata += (pos_feedback & clause_notx_high).int()
-        self.inv_automata -= ((pos_feedback & clause_x_low) | (pos_feedback & notclause_low)).int()
+        self.inv_automata -= (pos_feedback & clause_x_low).int()
+        self.inv_automata -= (pos_feedback & notclause_low).int()
 
         self.automata += (neg_feedback & (clauses & inv_X & ((self.action ^ 1)))).int()
         self.inv_automata += (neg_feedback & clauses & X & ((self.inv_action ^ 1))).int()
