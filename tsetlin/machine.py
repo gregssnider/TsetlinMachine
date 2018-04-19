@@ -1,7 +1,7 @@
 import numpy as np
 import time
 import torch
-use_cuda = False  # torch.cuda.is_available()
+use_cuda =  torch.cuda.is_available()
 if use_cuda:
     print('using GPU (CUDA)')
     from torch.cuda import IntTensor, ByteTensor, CharTensor, FloatTensor
@@ -313,16 +313,34 @@ class TsetlinMachine2:
         clause_notx_high = clauses & inv_X & high_prob
         clause_x_low = clauses & X & low_prob
 
+        # Tables and algorithms refer to version v6 of the Tsetlin Machine paper
+        #
+        #------------------ Positive polarity clauses -------------------------
+        #
+        # Lines 8-11 in Algorithm 1
+        #    Type 1 feedback, table 2: column 1
         self.automata += (pos_feedback & clause_x_high).int()
-        self.automata -= (pos_feedback & clause_notx_low).int()
+        #    Type 1 feedback, table 2: columns 3 and 4
         self.automata -= (pos_feedback & notclause_low).int()
+        #    Type 1 feedback, table 2: column 2
+        self.automata -= (pos_feedback & clause_notx_low).int()
 
+        # Lines 12-15 in Algorithm 1
+        #    Type2 feedback, table 3: column 2 (other columns have no effect)
+        self.automata += (neg_feedback & (clauses & inv_X & ((self.action ^ 1)))).int()
+
+        #------------------ Negative polarity clauses -------------------------
+        #
+        # Lines 19-22 of Algorithm 1.
+        #    Type 2 feedback
+        self.inv_automata += (neg_feedback & clauses & X & ((self.inv_action ^ 1))).int()
+
+        # Lines 19-22 of Algorithm 1.
+        #    Type 1 feedback
         self.inv_automata += (pos_feedback & clause_notx_high).int()
         self.inv_automata -= (pos_feedback & clause_x_low).int()
         self.inv_automata -= (pos_feedback & notclause_low).int()
 
-        self.automata += (neg_feedback & (clauses & inv_X & ((self.action ^ 1)))).int()
-        self.inv_automata += (neg_feedback & clauses & X & ((self.inv_action ^ 1))).int()
 
         # Keep automata in bounds [0, 2 * states]
         self.automata.clamp(1, 2 * self.states)
