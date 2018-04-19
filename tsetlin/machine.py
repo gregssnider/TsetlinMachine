@@ -274,8 +274,8 @@ class TsetlinMachine2:
         feedback_rand = FloatTensor(2, self.clauses_per_class // 2, 1).uniform_()
         feedback_threshold = (feedback_rand <= (
                     1.0 / (self.threshold * 2)) *  (self.threshold - class_sum[target_class]))
-        feedback_to_clauses[0, target_class] += feedback_threshold[0].int()
-        feedback_to_clauses[1, target_class] -= feedback_threshold[1].int()
+        #feedback_to_clauses[0, target_class] += feedback_threshold[0].int()
+        #feedback_to_clauses[1, target_class] -= feedback_threshold[1].int()
 
         if exper:
             pos_feedback[0, target_class] = feedback_threshold[0]
@@ -287,8 +287,8 @@ class TsetlinMachine2:
                     1.0 / (self.threshold * 2)) * \
                              (self.threshold + class_sum[
                                  anti_target_class])
-        feedback_to_clauses[0, anti_target_class] -= feedback_threshold[0].int()
-        feedback_to_clauses[1, anti_target_class] += feedback_threshold[1].int()
+        #feedback_to_clauses[0, anti_target_class] -= feedback_threshold[0].int()
+        #feedback_to_clauses[1, anti_target_class] += feedback_threshold[1].int()
 
         if exper:
             neg_feedback[0, anti_target_class] = feedback_threshold[0]
@@ -312,13 +312,13 @@ class TsetlinMachine2:
         # essentially is broadcasting done by hand.
         clause_matrix = clause_outputs.expand_as(low_prob)
         inv_clause_matrix = clause_matrix ^ 1
-        feedback_matrix = feedback_to_clauses
-        pos_feedback_matrix = (feedback_matrix > 0).expand_as(low_prob)
-        neg_feedback_matrix = (feedback_matrix < 0).expand_as(low_prob)
+        #feedback_matrix = feedback_to_clauses#
+        # pos_feedback_matrix = (feedback_matrix > 0).expand_as(low_prob)
+        #neg_feedback_matrix = (feedback_matrix < 0).expand_as(low_prob)
 
-        if exper:
-            assert pos_feedback.equal(pos_feedback_matrix)
-            assert neg_feedback.equal(neg_feedback_matrix)
+        #if exper:
+        #    assert pos_feedback.equal(pos_feedback_matrix)
+        #    assert neg_feedback.equal(neg_feedback_matrix)
 
         # Vectorization -- this is essentially unreadable. It replaces
         # the commented out code just below it
@@ -333,15 +333,15 @@ class TsetlinMachine2:
         ########### No low_prob or high_prob after here
 
         # type 1 feedback
-        self.automata += (pos_feedback_matrix & pos_delta).int()
-        self.automata -= ((pos_feedback_matrix & neg_delta) | (pos_feedback_matrix & neg_low_delta)).int()
+        self.automata += (pos_feedback & pos_delta).int()
+        self.automata -= ((pos_feedback & neg_delta) | (pos_feedback & neg_low_delta)).int()
 
-        self.inv_automata += (pos_feedback_matrix & pos_delta_inv).int()
-        self.inv_automata -= ((pos_feedback_matrix & neg_delta_inv) | (pos_feedback_matrix & neg_low_delta)).int()
+        self.inv_automata += (pos_feedback & pos_delta_inv).int()
+        self.inv_automata -= ((pos_feedback & neg_delta_inv) | (pos_feedback & neg_low_delta)).int()
 
         # type 2 feedback
-        self.automata += (neg_feedback_matrix & (clause_matrix & inv_X & ((self.action ^ 1)))).int()
-        self.inv_automata += (neg_feedback_matrix & clause_matrix & X & ((self.inv_action ^ 1))).int()
+        self.automata += (neg_feedback & (clause_matrix & inv_X & ((self.action ^ 1)))).int()
+        self.inv_automata += (neg_feedback & clause_matrix & X & ((self.inv_action ^ 1))).int()
 
         # Keep automata in bounds [0, 2 * states]
         self.automata.clamp(1, 2 * self.states)
