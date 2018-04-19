@@ -308,22 +308,18 @@ class TsetlinMachine2:
         # the commented out code just below it
         X = input.expand_as(low_prob)
         inv_X = (input ^ 1).expand_as(low_prob)
-        neg_low_delta = inv_clauses & low_prob
-        pos_delta = clauses & X & high_prob
-        neg_delta = clauses & inv_X & low_prob
-        pos_delta_inv = clauses & inv_X & high_prob
-        neg_delta_inv = clauses & X & low_prob
+        notclause_low = inv_clauses & low_prob
+        clause_x_high = clauses & X & high_prob
+        clause_notx_low = clauses & inv_X & low_prob
+        clause_notx_high = clauses & inv_X & high_prob
+        clause_x_low = clauses & X & low_prob
 
-        ########### No low_prob or high_prob after here
+        self.automata += (pos_feedback & clause_x_high).int()
+        self.automata -= ((pos_feedback & clause_notx_low) | (pos_feedback & notclause_low)).int()
 
-        # type 1 feedback
-        self.automata += (pos_feedback & pos_delta).int()
-        self.automata -= ((pos_feedback & neg_delta) | (pos_feedback & neg_low_delta)).int()
+        self.inv_automata += (pos_feedback & clause_notx_high).int()
+        self.inv_automata -= ((pos_feedback & clause_x_low) | (pos_feedback & notclause_low)).int()
 
-        self.inv_automata += (pos_feedback & pos_delta_inv).int()
-        self.inv_automata -= ((pos_feedback & neg_delta_inv) | (pos_feedback & neg_low_delta)).int()
-
-        # type 2 feedback
         self.automata += (neg_feedback & (clauses & inv_X & ((self.action ^ 1)))).int()
         self.inv_automata += (neg_feedback & clauses & X & ((self.inv_action ^ 1))).int()
 
