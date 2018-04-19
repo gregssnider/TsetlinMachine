@@ -261,15 +261,25 @@ class TsetlinMachine2:
         ### Calculate Feedback to Clauses ###
         #####################################
 
+        exper = True
+        if exper:
+            pos_feedback = ByteTensor(*self.clause_shape).zero_()
+            neg_feedback = ByteTensor(*self.clause_shape).zero_()
+
+
         # Initialize feedback to clauses
         feedback_to_clauses = IntTensor(*self.clause_shape).zero_()
 
         # Process target
         feedback_rand = FloatTensor(2, self.clauses_per_class // 2, 1).uniform_()
         feedback_threshold = (feedback_rand <= (
-                    1.0 / (self.threshold * 2)) *  (self.threshold - class_sum[target_class])).int()
+                    1.0 / (self.threshold * 2)) *  (self.threshold - class_sum[target_class]))
         feedback_to_clauses[0, target_class] += feedback_threshold[0].int()
         feedback_to_clauses[1, target_class] -= feedback_threshold[1].int()
+
+        if exper:
+            pos_feedback[0, target_class] = feedback_threshold[0]
+            neg_feedback[1, target_class] = feedback_threshold[1]
 
         # Process negative target
         feedback_rand = FloatTensor(2, self.clauses_per_class // 2, 1).uniform_()
@@ -280,12 +290,22 @@ class TsetlinMachine2:
         feedback_to_clauses[0, anti_target_class] -= feedback_threshold[0].int()
         feedback_to_clauses[1, anti_target_class] += feedback_threshold[1].int()
 
+        if exper:
+            neg_feedback[0, anti_target_class] = feedback_threshold[0]
+            pos_feedback[1, anti_target_class] = feedback_threshold[1]
+
+
+
         #################################
         ### Train Individual Automata ###
         #################################
 
         low_prob = self._low_probability()
         high_prob = self._high_probability()
+
+        if exper:
+            pos_feedback = pos_feedback.expand_as(low_prob)
+            neg_feedback = neg_feedback.expand_as(low_prob)
 
         # PyTorch does not (yet) properly implement NumPy style
         # broadcasting, so we fake it using the 'expand_as' method, which
@@ -295,6 +315,10 @@ class TsetlinMachine2:
         feedback_matrix = feedback_to_clauses
         pos_feedback_matrix = (feedback_matrix > 0).expand_as(low_prob)
         neg_feedback_matrix = (feedback_matrix < 0).expand_as(low_prob)
+
+        if exper:
+            assert pos_feedback.equal(pos_feedback_matrix)
+            assert neg_feedback.equal(neg_feedback_matrix)
 
         # Vectorization -- this is essentially unreadable. It replaces
         # the commented out code just below it
