@@ -261,10 +261,8 @@ class TsetlinMachine2:
         ### Calculate Feedback to Clauses ###
         #####################################
 
-        exper = True
-        if exper:
-            pos_feedback = ByteTensor(*self.clause_shape).zero_()
-            neg_feedback = ByteTensor(*self.clause_shape).zero_()
+        pos_feedback = ByteTensor(*self.clause_shape).zero_()
+        neg_feedback = ByteTensor(*self.clause_shape).zero_()
 
 
         # Initialize feedback to clauses
@@ -274,12 +272,9 @@ class TsetlinMachine2:
         feedback_rand = FloatTensor(2, self.clauses_per_class // 2, 1).uniform_()
         feedback_threshold = (feedback_rand <= (
                     1.0 / (self.threshold * 2)) *  (self.threshold - class_sum[target_class]))
-        #feedback_to_clauses[0, target_class] += feedback_threshold[0].int()
-        #feedback_to_clauses[1, target_class] -= feedback_threshold[1].int()
 
-        if exper:
-            pos_feedback[0, target_class] = feedback_threshold[0]
-            neg_feedback[1, target_class] = feedback_threshold[1]
+        pos_feedback[0, target_class] = feedback_threshold[0]
+        neg_feedback[1, target_class] = feedback_threshold[1]
 
         # Process negative target
         feedback_rand = FloatTensor(2, self.clauses_per_class // 2, 1).uniform_()
@@ -287,12 +282,9 @@ class TsetlinMachine2:
                     1.0 / (self.threshold * 2)) * \
                              (self.threshold + class_sum[
                                  anti_target_class])
-        #feedback_to_clauses[0, anti_target_class] -= feedback_threshold[0].int()
-        #feedback_to_clauses[1, anti_target_class] += feedback_threshold[1].int()
 
-        if exper:
-            neg_feedback[0, anti_target_class] = feedback_threshold[0]
-            pos_feedback[1, anti_target_class] = feedback_threshold[1]
+        neg_feedback[0, anti_target_class] = feedback_threshold[0]
+        pos_feedback[1, anti_target_class] = feedback_threshold[1]
 
 
 
@@ -303,32 +295,24 @@ class TsetlinMachine2:
         low_prob = self._low_probability()
         high_prob = self._high_probability()
 
-        if exper:
-            pos_feedback = pos_feedback.expand_as(low_prob)
-            neg_feedback = neg_feedback.expand_as(low_prob)
+        pos_feedback = pos_feedback.expand_as(low_prob)
+        neg_feedback = neg_feedback.expand_as(low_prob)
 
         # PyTorch does not (yet) properly implement NumPy style
         # broadcasting, so we fake it using the 'expand_as' method, which
         # essentially is broadcasting done by hand.
-        clause_matrix = clause_outputs.expand_as(low_prob)
-        inv_clause_matrix = clause_matrix ^ 1
-        #feedback_matrix = feedback_to_clauses#
-        # pos_feedback_matrix = (feedback_matrix > 0).expand_as(low_prob)
-        #neg_feedback_matrix = (feedback_matrix < 0).expand_as(low_prob)
-
-        #if exper:
-        #    assert pos_feedback.equal(pos_feedback_matrix)
-        #    assert neg_feedback.equal(neg_feedback_matrix)
+        clauses = clause_outputs.expand_as(low_prob)
+        inv_clauses = clauses ^ 1
 
         # Vectorization -- this is essentially unreadable. It replaces
         # the commented out code just below it
         X = input.expand_as(low_prob)
         inv_X = (input ^ 1).expand_as(low_prob)
-        neg_low_delta = inv_clause_matrix & low_prob
-        pos_delta = clause_matrix & X & high_prob
-        neg_delta = clause_matrix & inv_X & low_prob
-        pos_delta_inv = clause_matrix & inv_X & high_prob
-        neg_delta_inv = clause_matrix & X & low_prob
+        neg_low_delta = inv_clauses & low_prob
+        pos_delta = clauses & X & high_prob
+        neg_delta = clauses & inv_X & low_prob
+        pos_delta_inv = clauses & inv_X & high_prob
+        neg_delta_inv = clauses & X & low_prob
 
         ########### No low_prob or high_prob after here
 
@@ -340,8 +324,8 @@ class TsetlinMachine2:
         self.inv_automata -= ((pos_feedback & neg_delta_inv) | (pos_feedback & neg_low_delta)).int()
 
         # type 2 feedback
-        self.automata += (neg_feedback & (clause_matrix & inv_X & ((self.action ^ 1)))).int()
-        self.inv_automata += (neg_feedback & clause_matrix & X & ((self.inv_action ^ 1))).int()
+        self.automata += (neg_feedback & (clauses & inv_X & ((self.action ^ 1)))).int()
+        self.inv_automata += (neg_feedback & clauses & X & ((self.inv_action ^ 1))).int()
 
         # Keep automata in bounds [0, 2 * states]
         self.automata.clamp(1, 2 * self.states)
