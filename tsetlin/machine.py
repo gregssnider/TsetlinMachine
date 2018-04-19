@@ -302,13 +302,12 @@ class TsetlinMachine2:
         # broadcasting, so we fake it using the 'expand_as' method, which
         # essentially is broadcasting done by hand.
         clauses = clause_outputs.expand_as(low_prob)
-        inv_clauses = clauses ^ 1
+        not_clauses = clauses ^ 1
 
-        # Vectorization -- this is essentially unreadable. It replaces
-        # the commented out code just below it
+        # Need to sort out the tables here...
         X = input.expand_as(low_prob)
         inv_X = (input ^ 1).expand_as(low_prob)
-        notclause_low = inv_clauses & low_prob
+        notclause_low = not_clauses & low_prob
         clause_x_high = clauses & X & high_prob
         clause_notx_low = clauses & inv_X & low_prob
         clause_notx_high = clauses & inv_X & high_prob
