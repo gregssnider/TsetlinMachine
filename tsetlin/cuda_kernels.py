@@ -6,6 +6,8 @@ This is based on code from szagoruyk0:
     https://github.com/szagoruyko/pyinn/blob/master/pyinn/ncrelu.py
 """
 from collections import namedtuple
+import os
+print(os.environ["LD_LIBRARY_PATH"])
 import cupy
 import torch
 from string import Template

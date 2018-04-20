@@ -1,0 +1,37 @@
+Installing cupy and configuring PyCharm (Anaconda)
+
+1. Installing cupy
+
+The basic directions can be found online, but there are problems with
+environment variables. Steps:
+
+(a) Find out where your CUDA libraries are and set CUDA_PATH to that.
+PyTorch installs these for you, and not in the same place that NVIDIA's truly
+awful installer does. For me, this was:
+
+    CUDA_PATH=/home/greg/anaconda3/pkgs/cudatoolkit-8.0-3/lib/
+
+(b) When installing cupy, it wants to know both the CUDA_PATH and the
+LD_LIBRARY_PATH. This shell command does the trick for me:
+
+CUDA_PATH=/home/greg/anaconda3/pkgs/cudatoolkit-8.0-3/lib/ LD_LIBRARY_PATH=/home/greg/anaconda3/pkgs/cudatoolkit-8.0-3/lib pip install cupy-cuda80 --no-cache-dir
+
+
+
+2. PyCharm
+
+PyCharm does not import environment variables from .bashrc or .profile, so
+you need to configure LD_LIBRARY_PATH in PyCharm for cupy. The least painful
+way to do this is to install a plugin named "EnvFile"
+
+(a) Go to "File -> Settings -> Plugins" and install it.
+
+(b) Create a file in the top of your project directory called, say,
+environment.env and include the following in it:
+
+    LD_LIBRARY_PATH=/home/greg/anaconda3/pkgs/cudatoolkit-8.0-3/lib
+
+(c) For your project run configurations, go to "Edit Configurions" and hit
+the "EnvFile" tab, and hit the green "+" to add your "environment.env" file
+that you created in the last step.
+
