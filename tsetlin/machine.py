@@ -1,7 +1,7 @@
 import numpy as np
 import time
 import torch
-use_cuda =  False # torch.cuda.is_available()
+use_cuda = False  # torch.cuda.is_available()
 if use_cuda:
     print('using GPU (CUDA)')
     from torch.cuda import IntTensor, ByteTensor, CharTensor, FloatTensor
@@ -18,6 +18,9 @@ class TsetlinMachine2:
                  states: int, s, threshold):
         if clause_count % (2 * class_count) != 0:
             raise ValueError("# clauses must be a multiple of (2 * # classes)")
+
+        print('pytorch version', torch.__version__)
+        print('cuda version', torch.version.cuda)
 
         self.class_count = class_count
         self.clause_count = clause_count
@@ -94,7 +97,7 @@ class TsetlinMachine2:
         masked_input_row_sums = masked_input.int().sum(1)
 
         conjunction = used_row_sums.eq(masked_input_row_sums)
-        assert type(conjunction) == ByteTensor, str(type(conjunction))
+        #assert type(conjunction) == ByteTensor, str(type(conjunction))
 
         # Repeat the above computations for the inverting automata.
         inv_input = ~input
@@ -188,7 +191,7 @@ class TsetlinMachine2:
                 print('.', end='', flush=True)
             input = inputs[i]
             prediction = self.predict(input)
-            if prediction[0] != targets[i]:
+            if prediction[0] != targets[i].long():
                 errors += 1
         accuracy = (examples - errors) / examples
         return accuracy
@@ -271,7 +274,7 @@ class TsetlinMachine2:
         # Process target
         feedback_rand = FloatTensor(2, self.clauses_per_class // 2, 1).uniform_()
         feedback_threshold = (feedback_rand <= (
-                    1.0 / (self.threshold * 2)) *  (self.threshold - class_sum[target_class]))
+                    1.0 / (self.threshold * 2)) *  (self.threshold - class_sum[target_class].float()))
 
         pos_feedback[0, target_class] = feedback_threshold[0]
         neg_feedback[1, target_class] = feedback_threshold[1]
@@ -281,7 +284,7 @@ class TsetlinMachine2:
         feedback_threshold = feedback_rand <= (
                     1.0 / (self.threshold * 2)) * \
                              (self.threshold + class_sum[
-                                 anti_target_class])
+                                 anti_target_class].float())
 
         neg_feedback[0, anti_target_class] = feedback_threshold[0]
         pos_feedback[1, anti_target_class] = feedback_threshold[1]

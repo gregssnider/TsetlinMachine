@@ -1,4 +1,4 @@
-Installing cupy and configuring PyCharm (Anaconda)
+LInstalling cupy and configuring PyCharm (Anaconda)
 --------------------------------------------------
 
 
@@ -8,8 +8,8 @@ The basic directions can be found online, but there are problems with
 environment variables. Steps:
 
 (a) Find out where your CUDA libraries are and set CUDA_PATH to that.
-PyTorch installs these for you, and not in the same place that NVIDIA's truly
-awful installer does. For me, this was:
+PyTorch installs these for you, and not in the same place that NVIDIA's
+installer does. For me, this was:
 
     CUDA_PATH=/home/greg/anaconda3/pkgs/cudatoolkit-8.0-3/lib/
 
@@ -18,6 +18,9 @@ LD_LIBRARY_PATH. This shell command does the trick for me:
 
     CUDA_PATH=/home/greg/anaconda3/pkgs/cudatoolkit-8.0-3/lib/ LD_LIBRARY_PATH=/home/greg/anaconda3/pkgs/cudatoolkit-8.0-3/lib pip install cupy-cuda80 --no-cache-dir
 
+Note that if you install PyTorch from source (highly recommended if you have
+an older GPU), you will need to install CUDA and CUDNN before building. In that
+case, the most likely CUDA_PATH is /usr/local/cuda/lib64
 
 
 2. PyCharm (hard way -- see 3. below)
