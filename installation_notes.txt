@@ -1,4 +1,6 @@
 Installing cupy and configuring PyCharm (Anaconda)
+--------------------------------------------------
+
 
 1. Installing cupy
 
@@ -14,14 +16,14 @@ awful installer does. For me, this was:
 (b) When installing cupy, it wants to know both the CUDA_PATH and the
 LD_LIBRARY_PATH. This shell command does the trick for me:
 
-CUDA_PATH=/home/greg/anaconda3/pkgs/cudatoolkit-8.0-3/lib/ LD_LIBRARY_PATH=/home/greg/anaconda3/pkgs/cudatoolkit-8.0-3/lib pip install cupy-cuda80 --no-cache-dir
+    CUDA_PATH=/home/greg/anaconda3/pkgs/cudatoolkit-8.0-3/lib/ LD_LIBRARY_PATH=/home/greg/anaconda3/pkgs/cudatoolkit-8.0-3/lib pip install cupy-cuda80 --no-cache-dir
 
 
 
-2. PyCharm
+2. PyCharm (hard way -- see 3. below)
 
 PyCharm does not import environment variables from .bashrc or .profile, so
-you need to configure LD_LIBRARY_PATH in PyCharm for cupy. The least painful
+you need to configure LD_LIBRARY_PATH in PyCharm for cupy. A semi-painful
 way to do this is to install a plugin named "EnvFile"
 
 (a) Go to "File -> Settings -> Plugins" and install it.
@@ -35,3 +37,21 @@ environment.env and include the following in it:
 the "EnvFile" tab, and hit the green "+" to add your "environment.env" file
 that you created in the last step.
 
+
+
+3. PyCharm (easy way)
+
+To import environment variables into PyCharm unconditionally:
+
+(a) Create a bash script that declares the variables before executing PyCharm.
+For example, I created the script pycharm.sh in my home directory that contains:
+
+    #! /bin/bash
+    LD_LIBRARY_PATH=/home/greg/anaconda3/pkgs/cudatoolkit-8.0-3/lib /opt/pycharm-community-2018.1.1/bin/pycharm.sh
+
+(b) Right click on desk top and hit Create Launcher.
+
+(c) In the launcher, fill in the name (e.g. "PyCharm for cupy") and the command
+(/home/greg/pycharm.sh).
+
+(d) Put the launcher on the toolbar (drag and drop) and single click to launch.

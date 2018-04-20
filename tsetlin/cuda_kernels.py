@@ -66,6 +66,11 @@ __global__ void ncrelu_backward(${Dtype} *grad_input, const unsigned char *mask,
    bool flag = mask[tx];
    grad_input[tx] = flag ? grad_output[0] : grad_output[chw];
 }
+
+extern "C"
+__global__ void increment(float *grad_input, ar *mask, const ${Dtype} *grad_output,
+                                int chw, int total)
+
 '''
 
 

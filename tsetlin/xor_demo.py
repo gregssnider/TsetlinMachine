@@ -3,6 +3,7 @@ import torch
 import time
 import tsetlin
 from tsetlin.machine import TsetlinMachine2
+import cupy
 
 if __name__ == '__main__':
     # Parameters for the Tsetlin Machine
