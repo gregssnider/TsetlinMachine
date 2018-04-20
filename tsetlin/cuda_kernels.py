@@ -68,10 +68,28 @@ __global__ void ncrelu_backward(${Dtype} *grad_input, const unsigned char *mask,
 }
 
 extern "C"
-__global__ void increment(float *grad_input, ar *mask, const ${Dtype} *grad_output,
-                                int chw, int total)
-
+__global__ void increment(int *output, int *input, int elements)
+{
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i > elements)
+        return;
+    output[i] = input[i] + 1; 
+}
 '''
+
+def do_increment(input):
+    if not input.is_cuda:
+        return input + 1
+    assert input.is_contiguous()
+    with torch.cuda.device_of(input):
+        length = input.size()
+        output = input.new(length)
+        func = load_kernel('increment', kernels, Dtype='int')
+        func(args=[output.data_ptr(), input.data_ptr(), input.numel()],
+             block=(CUDA_NUM_THREADS, 1, 1),
+             grid=(GET_BLOCKS(input.numel()), 1, 1),
+             stream=Stream(ptr=torch.cuda.current_stream().cuda_stream))
+        return output
 
 
 def ncrelu_forward(input):
@@ -83,8 +101,8 @@ def ncrelu_forward(input):
         mask = torch.cuda.ByteTensor(input.size())
         f = load_kernel('ncrelu_forward', kernels, Dtype=Dtype(input))
         f(args=[output.data_ptr(), mask.data_ptr(), input.data_ptr(), c*h*w, input.numel()],
-          block=(CUDA_NUM_THREADS,1,1),
-          grid=(GET_BLOCKS(input.numel()),1,1),
+          block=(CUDA_NUM_THREADS, 1, 1),
+          grid=(GET_BLOCKS(input.numel()), 1, 1),
           stream=Stream(ptr=torch.cuda.current_stream().cuda_stream))
     return output, mask
 
@@ -127,7 +145,13 @@ def ncrelu(input):
     else:
         return NCRELU()(input)
 
-
-tensor = torch.FloatTensor([-2.0, 1.0, 0.0, 1.5])
-out = ncrelu(tensor)
-print(out)
+from time import time
+tensor = torch.IntTensor([0, 1, 2, 3])
+# Warm up GPU caches
+tensor = do_increment(tensor)
+start_time = time()
+for i in range(30000):
+    tensor = do_increment(tensor)
+elapsed_time = time() - start_time
+print(tensor)
+print('time:', elapsed_time)
