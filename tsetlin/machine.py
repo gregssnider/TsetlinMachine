@@ -314,6 +314,12 @@ class TsetlinMachine2:
 
         # Need to sort out the tables here...
         X = input.expand_as(low_prob)
+
+        not_action = neg_feedback & (self.action ^ 1)
+        not_inv_action = neg_feedback & (self.inv_action ^ 1)
+
+        #---------------------- Start CUDA
+
         inv_X = (input ^ 1).expand_as(low_prob)
         notclause_low = not_clauses & low_prob
         clause_x_high = clauses & X & high_prob
@@ -321,8 +327,8 @@ class TsetlinMachine2:
         clause_notx_high = clauses & inv_X & high_prob
         clause_x_low = clauses & X & low_prob
 
-        clause_notx_notaction = neg_feedback & (clauses & inv_X & ((self.action ^ 1)))
-        clause_x_noninvaction = neg_feedback & clauses & X & ((self.inv_action ^ 1))
+        clause_notx_notaction = clauses & inv_X & not_action
+        clause_x_noninvaction = clauses & X &  not_inv_action
 
         # The learning algorithm will increment, decrement, or leave untouched
         # every automata. You can see the exclusiveness in the following logic.
@@ -333,11 +339,13 @@ class TsetlinMachine2:
         inv_increment = clause_x_noninvaction | clause_notx_high
         inv_decrement = clause_x_low | notclause_low
 
+        #----------------------- End CUDA
+
+
         delta = increment.int() - decrement.int()
         inv_delta = inv_increment.int() - inv_decrement.int()
 
-        # Tables and algorithms refer to version v6 of the Tsetlin Machine paper
-        #
+
         #------------------ Positive polarity clauses -------------------------
         #
         # Lines 8-11 in Algorithm 1
