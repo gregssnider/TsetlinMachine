@@ -303,8 +303,8 @@ class TsetlinMachine2:
         pos_feedback = pos_feedback.expand_as(low_prob)
         neg_feedback = neg_feedback.expand_as(low_prob)
 
-        low_prob = low_prob & pos_feedback
-        high_prob = high_prob & pos_feedback
+        #low_prob = low_prob & pos_feedback
+        #high_prob = high_prob & pos_feedback
 
         # PyTorch does not (yet) properly implement NumPy style
         # broadcasting, so we fake it using the 'expand_as' method, which
@@ -315,20 +315,20 @@ class TsetlinMachine2:
         # Need to sort out the tables here...
         X = input.expand_as(low_prob)
 
-        not_action = neg_feedback & (self.action ^ 1)
-        not_inv_action = neg_feedback & (self.inv_action ^ 1)
+        #not_action = neg_feedback & (self.action ^ 1)
+        #not_inv_action = neg_feedback & (self.inv_action ^ 1)
 
         #---------------------- Start CUDA
 
         inv_X = (input ^ 1).expand_as(low_prob)
-        notclause_low = not_clauses & low_prob
-        clause_x_high = clauses & X & high_prob
-        clause_notx_low = clauses & inv_X & low_prob
-        clause_notx_high = clauses & inv_X & high_prob
-        clause_x_low = clauses & X & low_prob
+        notclause_low = not_clauses & low_prob & pos_feedback
+        clause_x_high = clauses & X & high_prob & pos_feedback
+        clause_notx_low = clauses & inv_X & low_prob & pos_feedback
+        clause_notx_high = clauses & inv_X & high_prob & pos_feedback
+        clause_x_low = clauses & X & low_prob & pos_feedback
 
-        clause_notx_notaction = clauses & inv_X & not_action
-        clause_x_noninvaction = clauses & X &  not_inv_action
+        clause_notx_notaction = clauses & inv_X & (self.action ^ 1) & neg_feedback
+        clause_x_noninvaction = clauses & X & (self.inv_action ^ 1) & neg_feedback
 
         # The learning algorithm will increment, decrement, or leave untouched
         # every automata. You can see the exclusiveness in the following logic.
