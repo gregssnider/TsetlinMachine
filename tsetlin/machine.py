@@ -3,7 +3,7 @@ from collections import namedtuple
 import time
 import torch
 import cupy
-use_cuda =  False  # torch.cuda.is_available()
+use_cuda =  torch.cuda.is_available()
 if use_cuda:
     print('using GPU (CUDA)')
     from torch.cuda import IntTensor, ByteTensor, FloatTensor
@@ -458,24 +458,24 @@ __global__ void learn(char *increment, char *decrement, char *inv_increment,
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i > elements)
         return;
-        
-    char notclause_low = not_clauses[i] & low_prob[i] & pos_feedback[i]
-    char clause_x_high = clauses[i] & X[i] & high_prob[i] & pos_feedback[i]
-    char clause_notx_low = clauses[i] & ~X[i] & low_prob[i] & pos_feedback[i]
-    char clause_notx_high = clauses[i] & ~X[i] & high_prob[i] & pos_feedback[i]
-    char clause_x_low = clauses[i] & X[i] & low_prob[i] & pos_feedback[i]
+
+    char notclause_low = ~clauses[i] & low_prob[i] & pos_feedback[i];
+    char clause_x_high = clauses[i] & X[i] & high_prob[i] & pos_feedback[i];
+    char clause_notx_low = clauses[i] & ~X[i] & low_prob[i] & pos_feedback[i];
+    char clause_notx_high = clauses[i] & ~X[i] & high_prob[i] & pos_feedback[i];
+    char clause_x_low = clauses[i] & X[i] & low_prob[i] & pos_feedback[i];
     
-    char clause_notx_notaction = clauses[i] & ~X[i] & (self.action ^ 1) & neg_feedback[i]
-    char clause_x_noninvaction = clauses & X & (self.inv_action ^ 1) & neg_feedback[i]
+    char clause_notx_notaction = clauses[i] & ~X[i] & (action[i] ^ 1) & neg_feedback[i];
+    char clause_x_noninvaction = clauses[i] & X[i] & (inv_action[i] ^ 1) & neg_feedback[i];
     
     // The learning algorithm will increment, decrement, or leave untouched
     // every automata. You can see the exclusiveness in the following logic.
     
-    increment[i] = clause_x_high | clause_notx_notaction
-    decrement[i] = notclause_low | clause_notx_low
+    increment[i] = clause_x_high | clause_notx_notaction;
+    decrement[i] = notclause_low | clause_notx_low;
     
-    inv_increment[i] = clause_x_noninvaction | clause_notx_high
-    inv_decrement[i] = clause_x_low | notclause_low
+    inv_increment[i] = clause_x_noninvaction | clause_notx_high;
+    inv_decrement[i] = clause_x_low | notclause_low;
 }
 '''
 
