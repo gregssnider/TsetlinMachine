@@ -325,12 +325,16 @@ class TsetlinMachine2:
         clause_x_noninvaction = neg_feedback & clauses & X & ((self.inv_action ^ 1))
 
         # The learning algorithm will increment, decrement, or leave untouched
-        # every automata.
+        # every automata. You can see the exclusiveness in the following logic.
 
-        increment = (clause_x_high | clause_notx_notaction |
-                     clause_x_noninvaction | clause_notx_high)
-        decrement = (notclause_low | clause_notx_low |
-                     clause_x_low | notclause_low)
+        increment = clause_x_high | clause_notx_notaction
+        decrement = notclause_low | clause_notx_low
+
+        inv_increment = clause_x_noninvaction | clause_notx_high
+        inv_decrement = clause_x_low | notclause_low
+
+        delta = increment.int() - decrement.int()
+        inv_delta = inv_increment.int() - inv_decrement.int()
 
         # Tables and algorithms refer to version v6 of the Tsetlin Machine paper
         #
@@ -338,27 +342,34 @@ class TsetlinMachine2:
         #
         # Lines 8-11 in Algorithm 1
         #    Type 1 feedback, table 2: column 1
-        self.automata += clause_x_high.int()
+        self.automata += increment.int()
+        #self.automata += clause_x_high.int()
+
         #    Type 1 feedback, table 2: columns 3 and 4
-        self.automata -= notclause_low.int()
+        self.automata -= decrement.int()
+        #self.automata -= notclause_low.int()
         #    Type 1 feedback, table 2: column 2
-        self.automata -= clause_notx_low.int()
+        #self.automata -= clause_notx_low.int()
 
         # Lines 12-15 in Algorithm 1
         #    Type2 feedback, table 3: column 2 (other columns have no effect)
-        self.automata += clause_notx_notaction.int()
+        #self.automata += clause_notx_notaction.int()
 
         #------------------ Negative polarity clauses -------------------------
         #
         # Lines 19-22 of Algorithm 1.
         #    Type 2 feedback
-        self.inv_automata += clause_x_noninvaction.int()
+
+        self.inv_automata += inv_increment.int()
+        self.inv_automata -= inv_decrement.int()
+
+        #self.inv_automata += clause_x_noninvaction.int()
 
         # Lines 19-22 of Algorithm 1.
         #    Type 1 feedback
-        self.inv_automata += clause_notx_high.int()
-        self.inv_automata -= clause_x_low.int()
-        self.inv_automata -= notclause_low.int()
+        #self.inv_automata += clause_notx_high.int()
+        #self.inv_automata -= clause_x_low.int()
+        #self.inv_automata -= notclause_low.int()
 
         #----------------------------------------------------------------------
 
