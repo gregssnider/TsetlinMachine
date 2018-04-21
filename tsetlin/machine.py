@@ -303,6 +303,9 @@ class TsetlinMachine2:
         pos_feedback = pos_feedback.expand_as(low_prob)
         neg_feedback = neg_feedback.expand_as(low_prob)
 
+        low_prob = low_prob & pos_feedback
+        high_prob = high_prob & pos_feedback
+
         # PyTorch does not (yet) properly implement NumPy style
         # broadcasting, so we fake it using the 'expand_as' method, which
         # essentially is broadcasting done by hand.
@@ -312,11 +315,11 @@ class TsetlinMachine2:
         # Need to sort out the tables here...
         X = input.expand_as(low_prob)
         inv_X = (input ^ 1).expand_as(low_prob)
-        notclause_low = pos_feedback & not_clauses & low_prob
-        clause_x_high = pos_feedback & clauses & X & high_prob
-        clause_notx_low = pos_feedback & clauses & inv_X & low_prob
-        clause_notx_high = pos_feedback & clauses & inv_X & high_prob
-        clause_x_low = pos_feedback & clauses & X & low_prob
+        notclause_low = not_clauses & low_prob
+        clause_x_high = clauses & X & high_prob
+        clause_notx_low = clauses & inv_X & low_prob
+        clause_notx_high = clauses & inv_X & high_prob
+        clause_x_low = clauses & X & low_prob
 
         clause_notx_notaction = neg_feedback & (clauses & inv_X & ((self.action ^ 1)))
         clause_x_noninvaction = neg_feedback & clauses & X & ((self.inv_action ^ 1))
