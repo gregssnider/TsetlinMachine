@@ -342,11 +342,11 @@ class TsetlinMachine2:
         #
         # Lines 8-11 in Algorithm 1
         #    Type 1 feedback, table 2: column 1
-        self.automata += increment.int()
+        self.automata += delta
         #self.automata += clause_x_high.int()
 
         #    Type 1 feedback, table 2: columns 3 and 4
-        self.automata -= decrement.int()
+        #self.automata -= decrement.int()
         #self.automata -= notclause_low.int()
         #    Type 1 feedback, table 2: column 2
         #self.automata -= clause_notx_low.int()
@@ -360,8 +360,8 @@ class TsetlinMachine2:
         # Lines 19-22 of Algorithm 1.
         #    Type 2 feedback
 
-        self.inv_automata += inv_increment.int()
-        self.inv_automata -= inv_decrement.int()
+        self.inv_automata += inv_delta
+        #self.inv_automata -= inv_decrement.int()
 
         #self.inv_automata += clause_x_noninvaction.int()
 
