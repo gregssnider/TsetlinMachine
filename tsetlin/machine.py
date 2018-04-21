@@ -1,13 +1,15 @@
 import numpy as np
+from collections import namedtuple
 import time
 import torch
-use_cuda = False  # torch.cuda.is_available()
+import cupy
+use_cuda =  torch.cuda.is_available()
 if use_cuda:
     print('using GPU (CUDA)')
-    from torch.cuda import IntTensor, ByteTensor, CharTensor, FloatTensor
+    from torch.cuda import IntTensor, ByteTensor, FloatTensor
 else:
     print('using CPU')
-    from torch import IntTensor, ByteTensor, CharTensor, FloatTensor
+    from torch import IntTensor, ByteTensor, FloatTensor
 
 
 class TsetlinMachine2:
@@ -314,7 +316,11 @@ class TsetlinMachine2:
         clause_x_high = clauses & X & high_prob
         clause_notx_low = clauses & inv_X & low_prob
         clause_notx_high = clauses & inv_X & high_prob
-        clause_x_low = clauses & X & low_prob
+
+        if use_cuda:
+            clause_x_low = dummy(clauses, X, low_prob)
+        else:
+            clause_x_low = clauses & X & low_prob
 
         # Tables and algorithms refer to version v6 of the Tsetlin Machine paper
         #
@@ -377,6 +383,57 @@ class TsetlinMachine2:
                 Xi = X[example_id]
                 self.train(Xi, target_class)
         return
+
+
+# Cupy kernels
+from .cuda_kernels import Stream, load_kernel, CUDA_NUM_THREADS, GET_BLOCKS
+
+kernels = '''
+extern "C"
+__global__ void dummy(char *output, char *clauses, char *X, char *low_prob, int elements)
+{
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i > elements)
+        return;
+    output[i] = clauses[i] & X[i] & low_prob[i];
+}
+'''
+
+'''
+def do_increment(input):
+    if not input.is_cuda:
+        return input + 1
+    assert input.is_contiguous()
+    with torch.cuda.device_of(input):
+        length = input.size()
+        output = input.new(length)
+        func = load_kernel('increment', kernels)
+        func(args=[output.data_ptr(), input.data_ptr(), input.numel()],
+             block=(CUDA_NUM_THREADS, 1, 1),
+             grid=(GET_BLOCKS(input.numel()), 1, 1),
+             stream=Stream(ptr=torch.cuda.current_stream().cuda_stream))
+        return output
+'''
+
+def dummy(clauses: ByteTensor, X: ByteTensor, low_prob: ByteTensor) -> ByteTensor:
+    assert clauses.is_cuda
+
+    clauses = clauses.contiguous()
+    X = X.contiguous()
+    low_prob = low_prob.contiguous()
+
+
+    with torch.cuda.device_of(clauses):
+        polarities, classes, clauses_per_class, features = clauses.size()
+        output = clauses.new(polarities, classes, clauses_per_class, features)
+        func = load_kernel('dummy', kernels)
+        func(args=[output.data_ptr(), clauses.data_ptr(), X.data_ptr(),
+                   low_prob.data_ptr(), clauses.numel()],
+             block=(CUDA_NUM_THREADS, 1, 1),
+             grid=(GET_BLOCKS(clauses.numel()), 1, 1),
+             stream=Stream(ptr=torch.cuda.current_stream().cuda_stream))
+        return output
+
 
 '''
 

@@ -1,4 +1,4 @@
-LInstalling cupy and configuring PyCharm (Anaconda)
+Installing cupy and configuring PyCharm (Anaconda)
 --------------------------------------------------
 
 
