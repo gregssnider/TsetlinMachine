@@ -318,34 +318,38 @@ class TsetlinMachine2:
         clause_notx_high = pos_feedback & clauses & inv_X & high_prob
         clause_x_low = pos_feedback & clauses & X & low_prob
 
+        clause_notx_notaction = neg_feedback & (clauses & inv_X & ((self.action ^ 1)))
+        clause_x_noninvaction = neg_feedback & clauses & X & ((self.inv_action ^ 1))
+
         # Tables and algorithms refer to version v6 of the Tsetlin Machine paper
         #
         #------------------ Positive polarity clauses -------------------------
         #
         # Lines 8-11 in Algorithm 1
         #    Type 1 feedback, table 2: column 1
-        self.automata += (clause_x_high).int()
+        self.automata += clause_x_high.int()
         #    Type 1 feedback, table 2: columns 3 and 4
-        self.automata -= (notclause_low).int()
+        self.automata -= notclause_low.int()
         #    Type 1 feedback, table 2: column 2
-        self.automata -= (clause_notx_low).int()
+        self.automata -= clause_notx_low.int()
 
         # Lines 12-15 in Algorithm 1
         #    Type2 feedback, table 3: column 2 (other columns have no effect)
-        self.automata += (neg_feedback & (clauses & inv_X & ((self.action ^ 1)))).int()
+        self.automata += clause_notx_notaction.int()
 
         #------------------ Negative polarity clauses -------------------------
         #
         # Lines 19-22 of Algorithm 1.
         #    Type 2 feedback
-        self.inv_automata += (neg_feedback & clauses & X & ((self.inv_action ^ 1))).int()
+        self.inv_automata += clause_x_noninvaction.int()
 
         # Lines 19-22 of Algorithm 1.
         #    Type 1 feedback
-        self.inv_automata += (clause_notx_high).int()
-        self.inv_automata -= (clause_x_low).int()
-        self.inv_automata -= (notclause_low).int()
+        self.inv_automata += clause_notx_high.int()
+        self.inv_automata -= clause_x_low.int()
+        self.inv_automata -= notclause_low.int()
 
+        #----------------------------------------------------------------------
 
         # Keep automata in bounds [0, 2 * states]
         self.automata.clamp(1, 2 * self.states)
