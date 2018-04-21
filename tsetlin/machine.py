@@ -3,7 +3,7 @@ from collections import namedtuple
 import time
 import torch
 import cupy
-use_cuda =  torch.cuda.is_available()
+use_cuda =  False  # torch.cuda.is_available()
 if use_cuda:
     print('using GPU (CUDA)')
     from torch.cuda import IntTensor, ByteTensor, FloatTensor
@@ -312,15 +312,11 @@ class TsetlinMachine2:
         # Need to sort out the tables here...
         X = input.expand_as(low_prob)
         inv_X = (input ^ 1).expand_as(low_prob)
-        notclause_low = not_clauses & low_prob
-        clause_x_high = clauses & X & high_prob
-        clause_notx_low = clauses & inv_X & low_prob
-        clause_notx_high = clauses & inv_X & high_prob
-
-        if use_cuda:
-            clause_x_low = dummy(clauses, X, low_prob)
-        else:
-            clause_x_low = clauses & X & low_prob
+        notclause_low = pos_feedback & not_clauses & low_prob
+        clause_x_high = pos_feedback & clauses & X & high_prob
+        clause_notx_low = pos_feedback & clauses & inv_X & low_prob
+        clause_notx_high = pos_feedback & clauses & inv_X & high_prob
+        clause_x_low = pos_feedback & clauses & X & low_prob
 
         # Tables and algorithms refer to version v6 of the Tsetlin Machine paper
         #
@@ -328,11 +324,11 @@ class TsetlinMachine2:
         #
         # Lines 8-11 in Algorithm 1
         #    Type 1 feedback, table 2: column 1
-        self.automata += (pos_feedback & clause_x_high).int()
+        self.automata += (clause_x_high).int()
         #    Type 1 feedback, table 2: columns 3 and 4
-        self.automata -= (pos_feedback & notclause_low).int()
+        self.automata -= (notclause_low).int()
         #    Type 1 feedback, table 2: column 2
-        self.automata -= (pos_feedback & clause_notx_low).int()
+        self.automata -= (clause_notx_low).int()
 
         # Lines 12-15 in Algorithm 1
         #    Type2 feedback, table 3: column 2 (other columns have no effect)
@@ -346,9 +342,9 @@ class TsetlinMachine2:
 
         # Lines 19-22 of Algorithm 1.
         #    Type 1 feedback
-        self.inv_automata += (pos_feedback & clause_notx_high).int()
-        self.inv_automata -= (pos_feedback & clause_x_low).int()
-        self.inv_automata -= (pos_feedback & notclause_low).int()
+        self.inv_automata += (clause_notx_high).int()
+        self.inv_automata -= (clause_x_low).int()
+        self.inv_automata -= (notclause_low).int()
 
 
         # Keep automata in bounds [0, 2 * states]
