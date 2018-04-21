@@ -321,6 +321,14 @@ class TsetlinMachine2:
         clause_notx_notaction = neg_feedback & (clauses & inv_X & ((self.action ^ 1)))
         clause_x_noninvaction = neg_feedback & clauses & X & ((self.inv_action ^ 1))
 
+        # The learning algorithm will increment, decrement, or leave untouched
+        # every automata.
+
+        increment = (clause_x_high | clause_notx_notaction |
+                     clause_x_noninvaction | clause_notx_high)
+        decrement = (notclause_low | clause_notx_low |
+                     clause_x_low | notclause_low)
+
         # Tables and algorithms refer to version v6 of the Tsetlin Machine paper
         #
         #------------------ Positive polarity clauses -------------------------
