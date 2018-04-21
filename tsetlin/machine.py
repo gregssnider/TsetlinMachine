@@ -319,25 +319,30 @@ class TsetlinMachine2:
         #not_inv_action = neg_feedback & (self.inv_action ^ 1)
 
         #---------------------- Start CUDA
+        if use_cuda:
+            increment, decrement, inv_increment, inv_decrement = \
+                learn(clauses, X, low_prob, high_prob, pos_feedback,
+                      neg_feedback, self.action, self.inv_action)
+        else:
 
-        inv_X = (input ^ 1).expand_as(low_prob)
-        notclause_low = not_clauses & low_prob & pos_feedback
-        clause_x_high = clauses & X & high_prob & pos_feedback
-        clause_notx_low = clauses & inv_X & low_prob & pos_feedback
-        clause_notx_high = clauses & inv_X & high_prob & pos_feedback
-        clause_x_low = clauses & X & low_prob & pos_feedback
+            inv_X = (input ^ 1).expand_as(low_prob)
+            notclause_low = not_clauses & low_prob & pos_feedback
+            clause_x_high = clauses & X & high_prob & pos_feedback
+            clause_notx_low = clauses & inv_X & low_prob & pos_feedback
+            clause_notx_high = clauses & inv_X & high_prob & pos_feedback
+            clause_x_low = clauses & X & low_prob & pos_feedback
 
-        clause_notx_notaction = clauses & inv_X & (self.action ^ 1) & neg_feedback
-        clause_x_noninvaction = clauses & X & (self.inv_action ^ 1) & neg_feedback
+            clause_notx_notaction = clauses & inv_X & (self.action ^ 1) & neg_feedback
+            clause_x_noninvaction = clauses & X & (self.inv_action ^ 1) & neg_feedback
 
-        # The learning algorithm will increment, decrement, or leave untouched
-        # every automata. You can see the exclusiveness in the following logic.
+            # The learning algorithm will increment, decrement, or leave untouched
+            # every automata. You can see the exclusiveness in the following logic.
 
-        increment = clause_x_high | clause_notx_notaction
-        decrement = notclause_low | clause_notx_low
+            increment = clause_x_high | clause_notx_notaction
+            decrement = notclause_low | clause_notx_low
 
-        inv_increment = clause_x_noninvaction | clause_notx_high
-        inv_decrement = clause_x_low | notclause_low
+            inv_increment = clause_x_noninvaction | clause_notx_high
+            inv_decrement = clause_x_low | notclause_low
 
         #----------------------- End CUDA
 
@@ -418,51 +423,99 @@ class TsetlinMachine2:
 # Cupy kernels
 from .cuda_kernels import Stream, load_kernel, CUDA_NUM_THREADS, GET_BLOCKS
 
+'''
+increment, decrement, inv_increment, inv_decrement = \
+    learn(clauses, X, low_prob, high_prob, pos_feedback, neg_feedback,
+    action, inv_action)
+    
+            inv_X = (input ^ 1).expand_as(low_prob)
+            notclause_low = not_clauses & low_prob & pos_feedback
+            clause_x_high = clauses & X & high_prob & pos_feedback
+            clause_notx_low = clauses & inv_X & low_prob & pos_feedback
+            clause_notx_high = clauses & inv_X & high_prob & pos_feedback
+            clause_x_low = clauses & X & low_prob & pos_feedback
+    
+            clause_notx_notaction = clauses & inv_X & (self.action ^ 1) & neg_feedback
+            clause_x_noninvaction = clauses & X & (self.inv_action ^ 1) & neg_feedback
+    
+            # The learning algorithm will increment, decrement, or leave untouched
+            # every automata. You can see the exclusiveness in the following logic.
+    
+            increment = clause_x_high | clause_notx_notaction
+            decrement = notclause_low | clause_notx_low
+    
+            inv_increment = clause_x_noninvaction | clause_notx_high
+            inv_decrement = clause_x_low | notclause_low
+'''
+
 kernels = '''
 extern "C"
-__global__ void dummy(char *output, char *clauses, char *X, char *low_prob, int elements)
+__global__ void learn(char *increment, char *decrement, char *inv_increment,
+    char *inv_decrement, char *clauses, char *X, char *low_prob, 
+    char *high_prob, char *pos_feedback, char *neg_feedback, char *action,
+    char *inv_action, int elements)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i > elements)
         return;
-    output[i] = clauses[i] & X[i] & low_prob[i];
+        
+    char notclause_low = not_clauses[i] & low_prob[i] & pos_feedback[i]
+    char clause_x_high = clauses[i] & X[i] & high_prob[i] & pos_feedback[i]
+    char clause_notx_low = clauses[i] & ~X[i] & low_prob[i] & pos_feedback[i]
+    char clause_notx_high = clauses[i] & ~X[i] & high_prob[i] & pos_feedback[i]
+    char clause_x_low = clauses[i] & X[i] & low_prob[i] & pos_feedback[i]
+    
+    char clause_notx_notaction = clauses[i] & ~X[i] & (self.action ^ 1) & neg_feedback[i]
+    char clause_x_noninvaction = clauses & X & (self.inv_action ^ 1) & neg_feedback[i]
+    
+    // The learning algorithm will increment, decrement, or leave untouched
+    // every automata. You can see the exclusiveness in the following logic.
+    
+    increment[i] = clause_x_high | clause_notx_notaction
+    decrement[i] = notclause_low | clause_notx_low
+    
+    inv_increment[i] = clause_x_noninvaction | clause_notx_high
+    inv_decrement[i] = clause_x_low | notclause_low
 }
 '''
 
-'''
-def do_increment(input):
-    if not input.is_cuda:
-        return input + 1
-    assert input.is_contiguous()
-    with torch.cuda.device_of(input):
-        length = input.size()
-        output = input.new(length)
-        func = load_kernel('increment', kernels)
-        func(args=[output.data_ptr(), input.data_ptr(), input.numel()],
-             block=(CUDA_NUM_THREADS, 1, 1),
-             grid=(GET_BLOCKS(input.numel()), 1, 1),
-             stream=Stream(ptr=torch.cuda.current_stream().cuda_stream))
-        return output
-'''
 
-def dummy(clauses: ByteTensor, X: ByteTensor, low_prob: ByteTensor) -> ByteTensor:
+def learn(clauses: ByteTensor, X: ByteTensor, low_prob: ByteTensor,
+          high_prob: ByteTensor, pos_feedback: ByteTensor,
+          neg_feedback: ByteTensor, action: ByteTensor, inv_action: ByteTensor)\
+        -> (ByteTensor, ByteTensor, ByteTensor, ByteTensor):
     assert clauses.is_cuda
 
     clauses = clauses.contiguous()
     X = X.contiguous()
     low_prob = low_prob.contiguous()
+    high_prob = high_prob.contiguous()
+    pos_feedback = pos_feedback.contiguous()
+    neg_feedback = neg_feedback.contiguous()
 
 
     with torch.cuda.device_of(clauses):
         polarities, classes, clauses_per_class, features = clauses.size()
-        output = clauses.new(polarities, classes, clauses_per_class, features)
-        func = load_kernel('dummy', kernels)
-        func(args=[output.data_ptr(), clauses.data_ptr(), X.data_ptr(),
-                   low_prob.data_ptr(), clauses.numel()],
+        elements = clauses.numel()
+
+        # Outputs
+        incr = clauses.new(polarities, classes, clauses_per_class, features)
+        decr = clauses.new(polarities, classes, clauses_per_class, features)
+        inv_incr = clauses.new(polarities, classes, clauses_per_class, features)
+        inv_decr = clauses.new(polarities, classes, clauses_per_class, features)
+
+        func = load_kernel('learn', kernels)
+        func(args=[incr.data_ptr(), decr.data_ptr(), inv_incr.data_ptr(),
+                   inv_decr.data_ptr(),
+                   clauses.data_ptr(), X.data_ptr(),
+                   low_prob.data_ptr(), high_prob.data_ptr(),
+                   pos_feedback.data_ptr(), neg_feedback.data_ptr(),
+                   action.data_ptr(), inv_action.data_ptr(),
+                   elements],
              block=(CUDA_NUM_THREADS, 1, 1),
-             grid=(GET_BLOCKS(clauses.numel()), 1, 1),
+             grid=(GET_BLOCKS(elements), 1, 1),
              stream=Stream(ptr=torch.cuda.current_stream().cuda_stream))
-        return output
+        return incr, decr, inv_incr, inv_decr
 
 
 '''
