@@ -32,7 +32,7 @@ from libc.stdlib cimport rand, RAND_MAX
 ### The Multiclass Tsetlin Machine #####
 ########################################
 
-cdef class OriginalMultiClassTsetlinMachine:
+cdef class MultiClassTsetlinMachine:
 	cdef int number_of_classes
 	cdef int number_of_clauses
 	cdef int number_of_features

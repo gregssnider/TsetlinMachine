@@ -189,8 +189,8 @@ class TsetlinMachine2:
         errors = 0
         examples = targets.shape[0]
         for i in range(examples):
-            if i % 100 == 0:
-                print('.', end='', flush=True)
+            #if i % 100 == 0:
+            #    print('.', end='', flush=True)
             input = inputs[i]
             prediction = self.predict(input)
             if prediction[0] != targets[i].long():
@@ -404,8 +404,8 @@ class TsetlinMachine2:
         assert len(X.shape) == 2 and len(y.shape) == 1
         assert X.shape[0] == y.shape[0] == number_of_examples
         assert X.shape[1] == self.feature_count
-        assert isinstance(X, ByteTensor)
-        assert isinstance(y, IntTensor)
+        assert isinstance(X, ByteTensor), str(type(X))
+        assert isinstance(y, IntTensor), str(type(y))
 
         random_index = np.arange(number_of_examples)
         print()
