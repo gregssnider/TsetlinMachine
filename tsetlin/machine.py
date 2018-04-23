@@ -3,7 +3,7 @@ from collections import namedtuple
 import time
 import torch
 import cupy
-use_cuda =  torch.cuda.is_available()
+use_cuda = torch.cuda.is_available()
 if use_cuda:
     print('using GPU (CUDA)')
     from torch.cuda import IntTensor, ByteTensor, FloatTensor
@@ -84,37 +84,43 @@ class TsetlinMachine2:
         assert isinstance(input, ByteTensor)
         assert input.shape == (self.feature_count, )
 
-        # First we process the non-inverting automata.
-        # We collect the 'used_bits' matrix, those bits that are used by each
-        # clause in computing the conjunction of the non-inverted input.s
-        # Each row of 'used_bits' are the non-inverted used bits for one clause.
-        used_bits = self.action.view(-1, self.feature_count)
 
-        # For each clause, we mask out input bits which are not used. If the
-        # number of remaining bits equals the number of bits in used_bits for
-        # that clause, then the conjunction of the non-inverting bits is True.
-        masked_input = used_bits & input.expand_as(used_bits)
+        if False:
+            clause_result = evaluate(input, self.action, self.inv_action)
 
-        used_row_sums = used_bits.int().sum(1)
-        masked_input_row_sums = masked_input.int().sum(1)
+        else:
+            # First we process the non-inverting automata.
+            # We collect the 'used_bits' matrix, those bits that are used by each
+            # clause in computing the conjunction of the non-inverted input.s
+            # Each row of 'used_bits' are the non-inverted used bits for one clause.
+            used_bits = self.action.view(-1, self.feature_count)
 
-        conjunction = used_row_sums.eq(masked_input_row_sums)
-        #assert type(conjunction) == ByteTensor, str(type(conjunction))
+            input = input.expand_as(used_bits)
+            # For each clause, we mask out input bits which are not used. If the
+            # number of remaining bits equals the number of bits in used_bits for
+            # that clause, then the conjunction of the non-inverting bits is True.
+            masked_input = used_bits & input.expand_as(used_bits)
 
-        # Repeat the above computations for the inverting automata.
-        inv_input = ~input
-        inv_used_bits = self.inv_action.view(-1, self.feature_count)
-        inv_masked_input = inv_used_bits & inv_input.expand_as(inv_used_bits)
+            used_row_sums = used_bits.int().sum(1)
+            masked_input_row_sums = masked_input.int().sum(1)
 
-        inv_used_row_sums = inv_used_bits.int().sum(1)
-        inv_masked_input_row_sums = inv_masked_input.int().sum(1)
-        inv_conjunction = inv_used_row_sums.eq(inv_masked_input_row_sums)
+            conjunction = used_row_sums.eq(masked_input_row_sums)
+            #assert type(conjunction) == ByteTensor, str(type(conjunction))
 
-        # The final output of each clause is the conjunction of:
-        #   (1) conjunction of used, non-inverting inputs
-        #   (2) conjunction of used, inverted inputs
-        clause_result = conjunction & inv_conjunction
-        assert isinstance(clause_result, ByteTensor), str(type(clause_result))
+            # Repeat the above computations for the inverting automata.
+            inv_input = ~input
+            inv_used_bits = self.inv_action.view(-1, self.feature_count)
+            inv_masked_input = inv_used_bits & inv_input.expand_as(inv_used_bits)
+
+            inv_used_row_sums = inv_used_bits.int().sum(1)
+            inv_masked_input_row_sums = inv_masked_input.int().sum(1)
+            inv_conjunction = inv_used_row_sums.eq(inv_masked_input_row_sums)
+
+            # The final output of each clause is the conjunction of:
+            #   (1) conjunction of used, non-inverting inputs
+            #   (2) conjunction of used, inverted inputs
+            clause_result = conjunction & inv_conjunction
+            assert isinstance(clause_result, ByteTensor), str(type(clause_result))
         return clause_result.view(*self.clause_shape)
 
     def sum_up_class_votes(self, clause_outputs: ByteTensor) -> IntTensor:
@@ -411,42 +417,20 @@ class TsetlinMachine2:
         print()
         for epoch in range(epochs):
             print('\r epoch', epoch, end='', flush=True)
+            start_time = time.time()
             np.random.shuffle(random_index)
             for i in range(number_of_examples):
                 example_id = random_index[i]
                 target_class = y[example_id]
                 Xi = X[example_id]
                 self.train(Xi, target_class)
+            elapsed_time = time.time() - start_time
+            print(' time:', elapsed_time)
         return
 
 
 # Cupy kernels
 from .cuda_kernels import Stream, load_kernel, CUDA_NUM_THREADS, GET_BLOCKS
-
-'''
-increment, decrement, inv_increment, inv_decrement = \
-    learn(clauses, X, low_prob, high_prob, pos_feedback, neg_feedback,
-    action, inv_action)
-    
-            inv_X = (input ^ 1).expand_as(low_prob)
-            notclause_low = not_clauses & low_prob & pos_feedback
-            clause_x_high = clauses & X & high_prob & pos_feedback
-            clause_notx_low = clauses & inv_X & low_prob & pos_feedback
-            clause_notx_high = clauses & inv_X & high_prob & pos_feedback
-            clause_x_low = clauses & X & low_prob & pos_feedback
-    
-            clause_notx_notaction = clauses & inv_X & (self.action ^ 1) & neg_feedback
-            clause_x_noninvaction = clauses & X & (self.inv_action ^ 1) & neg_feedback
-    
-            # The learning algorithm will increment, decrement, or leave untouched
-            # every automata. You can see the exclusiveness in the following logic.
-    
-            increment = clause_x_high | clause_notx_notaction
-            decrement = notclause_low | clause_notx_low
-    
-            inv_increment = clause_x_noninvaction | clause_notx_high
-            inv_decrement = clause_x_low | notclause_low
-'''
 
 kernels = '''
 extern "C"
