@@ -11,7 +11,12 @@ else:
 
 
 class TsetlinMachine2:
-    """The Tsetlin Machine.
+    """The Tsetlin Machine as a classifier.
+
+    This is documented in the paper
+
+    :ivar class_count: Number of classification classes.
+    :ivar clause_count: Number of clauses
 
     """
     def __init__(self, class_count: int, clause_count: int, feature_count: int,
@@ -54,6 +59,7 @@ class TsetlinMachine2:
         assert isinstance(self.inv_automata, IntTensor)
 
     def cuda(self):
+        """Move the machine to the GPU. """
         if torch.cuda.is_available():
             self.automata = self.automata.cuda()
             self.inv_automata = self.inv_automata.cuda()
@@ -61,27 +67,16 @@ class TsetlinMachine2:
             self.inv_action = self.inv_action.cuda()
 
     def update_action(self):
-        """Update the actions from the automata, needed after learning."""
+        """Update the actions from the automata, needed after learning. """
         self.action = self.automata > self.states
         self.inv_action = self.inv_automata > self.states
 
     def evaluate_clauses(self, input: ByteTensor) -> ByteTensor:
         """Evaluate all clauses in the array.
 
-        Args:
-            input: 1D boolean array (length = feature_count) holding the input
-                vector to the machine.
-
-        Returns:
-            1D boolean array of the outputs of each clause. The first half
-                contains the positive polarity clauses, the second half contains
-                the negative polarity clauses.
-                shape: (polarities, class_count, self.clauses_per_class // polarities, 1)
-
+        :param input: Input vector. Shape (feature_count, )
+        :return: Array of outputs for each clause. Shape: self.clause_shape
         """
-        assert isinstance(input, ByteTensor), str(type(input))
-        assert input.shape == (self.feature_count, )
-
         # Check that all set action bits are also set in the input.
         input = input.expand_as(self.action)
         matches, _ = torch.min((self.action & input).eq(self.action), 3)
@@ -98,25 +93,13 @@ class TsetlinMachine2:
     def sum_up_class_votes(self, clause_outputs: ByteTensor) -> IntTensor:
         """Add up votes for all classes.
 
-        This is where we structure the clause outputs (which are unaware of
-        classes and clause polarities).
-
-        Args:
-            clause_outputs: shape = (self.clause_count, ), boolean output of
-                each clause.
-
-        Returns:
-            shape = (self.class_count, ), integer sum of votes for each class.
-
+        :param clause_outputs: Array of boolean outputs for all clauses.
+            Shape: self.clause_shape
+        :return: Integer sum of votes for each class.
         """
-        assert isinstance(clause_outputs, ByteTensor)
-        assert clause_outputs.shape == self.clause_shape
-
-        ##### (polarity, class, clause_in_half_class, feature)
-
         # We split the clauses into positive polarity and negative polarity,
         # then compute the polarity-weighted votes.
-        positive = clause_outputs[0].int()  # shape(classes, clauses_per_class // 2, 1)
+        positive = clause_outputs[0].int()
         negative = clause_outputs[1].int()
         votes = (positive - negative).view(self.class_count, -1)
 
@@ -131,33 +114,21 @@ class TsetlinMachine2:
     def predict(self, input: ByteTensor) -> IntTensor:
         """Forward inference of input.
 
-        Args:
-            input: 1D boolean input.
-
-        Returns:
-            The index of the class of the input (scalar held in tensor).
+        :param input: Input vector, shape(feature_count, )
+        :return: Predicted class of the input
         """
-        assert isinstance(input, ByteTensor)
-        assert input.shape == (self.feature_count, )
-
         clause_outputs = self.evaluate_clauses(input)
-        assert clause_outputs.shape == self.clause_shape
-
         class_votes = self.sum_up_class_votes(clause_outputs)
-        assert class_votes.shape == (self.class_count, )
-
-        value, index = class_votes.max(0)
+        _, index = class_votes.max(0)
         return index
 
-    def evaluate(self, inputs: np.ndarray, targets: np.ndarray, notused) -> float:
-        """Evaluate the machine on a dataset.
+    def evaluate(self, inputs: ByteTensor, targets: IntTensor, unused) -> float:
+        """Evaluate the machine on a classification dataset.
 
-        Args:
-            inputs: 2D array of inputs, each row is one (boolean) input vector.
-            targets: 1D array of class indices, one for each input.
-
-        Returns:
-            Classification accuracy of the machine.
+        :param inputs: Array of inputs. Shape(rows, feature_count)
+        :param targets: Array of target classes for inputs. Shape(rows, )
+        :param unused: Compatibility parameter, not used.
+        :return: Accuracy of machine on the dataset
         """
         assert isinstance(inputs, ByteTensor)
         assert inputs.shape[1] == self.feature_count
@@ -167,8 +138,6 @@ class TsetlinMachine2:
         errors = 0
         examples = targets.shape[0]
         for i in range(examples):
-            #if i % 100 == 0:
-            #    print('.', end='', flush=True)
             input = inputs[i]
             prediction = self.predict(input)
             if prediction[0] != targets[i].long():
@@ -179,43 +148,12 @@ class TsetlinMachine2:
     def train(self, input: ByteTensor, target_class: int):
         """Train the machine with a single example.
 
-        Called 'update' in original code
-
-        Args:
-            input: 1D array of booleans.
-            target: The class of the input
-
+        :param input: Input vector. Shape (feature_count, )
+        :param target_class: Correct class for input.
         """
-        assert isinstance(input, ByteTensor)
-        assert input.shape == (self.feature_count, )
-        assert target_class >= 0 and target_class < self.class_count
-
-        # Randomly pick one of the other classes for pairwise learning.
-        #anti_target_class = target_class
-        #while anti_target_class == target_class:
-        #    anti_target_class = np.random.randint(0, self.class_count)
-
-        #assert anti_target_class < self.class_count
-
-        ###############################
-        ### Calculate Clause Output ###
-        ###############################
         clause_outputs = self.evaluate_clauses(input)
-        assert clause_outputs.shape == self.clause_shape
-
-        ###########################
-        ### Sum up Clause Votes ###
-        ###########################
         class_sum = self.sum_up_class_votes(clause_outputs)
-        assert class_sum.shape == (self.class_count, )
 
-        # Automata and action tensors are 2D, indexed by:
-        #    polarity   (0 => positive, 1 => negative)
-        #    class index
-        #    class_clauses per polarity
-        #    input feature index
-        #
-        #-----------------------------------------------------------------------------------
         #####################################
         ### Calculate Feedback to Clauses ###
         #####################################
@@ -286,46 +224,10 @@ class TsetlinMachine2:
             inv_decrement = clause_x_low | notclause_low
 
         #----------------------- End CUDA
-
-
         delta = increment.int() - decrement.int()
         inv_delta = inv_increment.int() - inv_decrement.int()
-
-
-        #------------------ Positive polarity clauses -------------------------
-        #
-        # Lines 8-11 in Algorithm 1
-        #    Type 1 feedback, table 2: column 1
         self.automata += delta
-        #self.automata += clause_x_high.int()
-
-        #    Type 1 feedback, table 2: columns 3 and 4
-        #self.automata -= decrement.int()
-        #self.automata -= notclause_low.int()
-        #    Type 1 feedback, table 2: column 2
-        #self.automata -= clause_notx_low.int()
-
-        # Lines 12-15 in Algorithm 1
-        #    Type2 feedback, table 3: column 2 (other columns have no effect)
-        #self.automata += clause_notx_notaction.int()
-
-        #------------------ Negative polarity clauses -------------------------
-        #
-        # Lines 19-22 of Algorithm 1.
-        #    Type 2 feedback
-
         self.inv_automata += inv_delta
-        #self.inv_automata -= inv_decrement.int()
-
-        #self.inv_automata += clause_x_noninvaction.int()
-
-        # Lines 19-22 of Algorithm 1.
-        #    Type 1 feedback
-        #self.inv_automata += clause_notx_high.int()
-        #self.inv_automata -= clause_x_low.int()
-        #self.inv_automata -= notclause_low.int()
-
-        #----------------------------------------------------------------------
 
         # Keep automata in bounds [0, 2 * states]
         self.automata.clamp(1, 2 * self.states)
@@ -333,21 +235,14 @@ class TsetlinMachine2:
 
         self.update_action()
 
-    def fit(self, X: np.ndarray, y: np.ndarray, number_of_examples, epochs=100):
+    def fit(self, X: ByteTensor, y: IntTensor, number_of_examples, epochs=100):
         """Train the network.
 
-        Args:
-            X: Matrix of inputs, one input per row.
-            y: Vector of categories, one per row of inputs.
-            number_of_examples: Rows in X and y.
-            epochs: Number of training epochs.
+        :param X: Matrix of inputs, one input per row
+        :param y: Vector of categories, one per row of inputs.
+        :param number_of_examples: Rows in X and y.
+        :param epochs: Number of training epochs.
         """
-        assert len(X.shape) == 2 and len(y.shape) == 1
-        assert X.shape[0] == y.shape[0] == number_of_examples
-        assert X.shape[1] == self.feature_count
-        assert isinstance(X, ByteTensor), str(type(X))
-        assert isinstance(y, IntTensor), str(type(y))
-
         random_index = np.arange(number_of_examples)
         print()
         for epoch in range(epochs):
