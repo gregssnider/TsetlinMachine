@@ -17,7 +17,7 @@ if __name__ == '__main__':
     number_of_classes = 2
 
     # Training configuration
-    epochs = 200
+    epochs = 20
 
     # Loading of training and test data
     training_data = np.loadtxt("../data/noisy_xor/NoisyXORTrainingData.txt")

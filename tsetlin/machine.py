@@ -81,13 +81,28 @@ class TsetlinMachine2:
                 shape: (polarities, class_count, self.clauses_per_class // polarities, 1)
 
         """
-        assert isinstance(input, ByteTensor)
+        assert isinstance(input, ByteTensor), str(type(input))
         assert input.shape == (self.feature_count, )
 
 
-        if False:
-            clause_result = evaluate(input, self.action, self.inv_action)
+        if True:
+            # Check that all set action bits are also set in the input.
+            input = input.expand_as(self.action)
+            matches, _ = torch.min((self.action & input).eq(self.action), 3)
 
+            # Same check for inv_action and inv_input.
+            inv_input = (~input).expand_as(self.action)
+            inv_matches, _ = torch.min((self.inv_action & inv_input).eq(self.inv_action), 3)
+
+            # Clause is true if both tests pass.
+            clause_result = matches & inv_matches
+            '''
+            print('input', input.shape)
+            print('inv_input', inv_input.shape)
+            print('matches', matches.shape)
+            print('inv_matches', inv_matches.shape)
+            print('clause_result', clause_result.shape)
+            '''
         else:
             # First we process the non-inverting automata.
             # We collect the 'used_bits' matrix, those bits that are used by each
