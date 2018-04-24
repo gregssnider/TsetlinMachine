@@ -84,58 +84,17 @@ class TsetlinMachine2:
         assert isinstance(input, ByteTensor), str(type(input))
         assert input.shape == (self.feature_count, )
 
+        # Check that all set action bits are also set in the input.
+        input = input.expand_as(self.action)
+        matches, _ = torch.min((self.action & input).eq(self.action), 3)
 
-        if True:
-            # Check that all set action bits are also set in the input.
-            input = input.expand_as(self.action)
-            matches, _ = torch.min((self.action & input).eq(self.action), 3)
+        # Same check for inv_action and inv_input.
+        inv_input = (~input).expand_as(self.action)
+        inv_matches, _ = torch.min((self.inv_action & inv_input).
+                                       eq(self.inv_action), 3)
 
-            # Same check for inv_action and inv_input.
-            inv_input = (~input).expand_as(self.action)
-            inv_matches, _ = torch.min((self.inv_action & inv_input).eq(self.inv_action), 3)
-
-            # Clause is true if both tests pass.
-            clause_result = matches & inv_matches
-            '''
-            print('input', input.shape)
-            print('inv_input', inv_input.shape)
-            print('matches', matches.shape)
-            print('inv_matches', inv_matches.shape)
-            print('clause_result', clause_result.shape)
-            '''
-        else:
-            # First we process the non-inverting automata.
-            # We collect the 'used_bits' matrix, those bits that are used by each
-            # clause in computing the conjunction of the non-inverted input.s
-            # Each row of 'used_bits' are the non-inverted used bits for one clause.
-            used_bits = self.action.view(-1, self.feature_count)
-
-            input = input.expand_as(used_bits)
-            # For each clause, we mask out input bits which are not used. If the
-            # number of remaining bits equals the number of bits in used_bits for
-            # that clause, then the conjunction of the non-inverting bits is True.
-            masked_input = used_bits & input.expand_as(used_bits)
-
-            used_row_sums = used_bits.int().sum(1)
-            masked_input_row_sums = masked_input.int().sum(1)
-
-            conjunction = used_row_sums.eq(masked_input_row_sums)
-            #assert type(conjunction) == ByteTensor, str(type(conjunction))
-
-            # Repeat the above computations for the inverting automata.
-            inv_input = ~input
-            inv_used_bits = self.inv_action.view(-1, self.feature_count)
-            inv_masked_input = inv_used_bits & inv_input.expand_as(inv_used_bits)
-
-            inv_used_row_sums = inv_used_bits.int().sum(1)
-            inv_masked_input_row_sums = inv_masked_input.int().sum(1)
-            inv_conjunction = inv_used_row_sums.eq(inv_masked_input_row_sums)
-
-            # The final output of each clause is the conjunction of:
-            #   (1) conjunction of used, non-inverting inputs
-            #   (2) conjunction of used, inverted inputs
-            clause_result = conjunction & inv_conjunction
-            assert isinstance(clause_result, ByteTensor), str(type(clause_result))
+        # Clause is true if both tests pass.
+        clause_result = matches & inv_matches
         return clause_result.view(*self.clause_shape)
 
     def sum_up_class_votes(self, clause_outputs: ByteTensor) -> IntTensor:
