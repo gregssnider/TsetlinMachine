@@ -432,6 +432,47 @@ class TsetlinMachine2:
 # Cupy kernels
 from .cuda_kernels import Stream, load_kernel, CUDA_NUM_THREADS, GET_BLOCKS
 
+'''
+        if False:
+            clause_result = evaluate(input, self.action, self.inv_action)
+
+        else:
+            # First we process the non-inverting automata.
+            # We collect the 'used_bits' matrix, those bits that are used by each
+            # clause in computing the conjunction of the non-inverted input.s
+            # Each row of 'used_bits' are the non-inverted used bits for one clause.
+            used_bits = self.action.view(-1, self.feature_count)
+
+            input = input.expand_as(used_bits)
+            # For each clause, we mask out input bits which are not used. If the
+            # number of remaining bits equals the number of bits in used_bits for
+            # that clause, then the conjunction of the non-inverting bits is True.
+            masked_input = used_bits & input.expand_as(used_bits)
+
+            used_row_sums = used_bits.int().sum(1)
+            masked_input_row_sums = masked_input.int().sum(1)
+
+            conjunction = used_row_sums.eq(masked_input_row_sums)
+            #assert type(conjunction) == ByteTensor, str(type(conjunction))
+
+            # Repeat the above computations for the inverting automata.
+            inv_input = ~input
+            inv_used_bits = self.inv_action.view(-1, self.feature_count)
+            inv_masked_input = inv_used_bits & inv_input.expand_as(inv_used_bits)
+
+            inv_used_row_sums = inv_used_bits.int().sum(1)
+            inv_masked_input_row_sums = inv_masked_input.int().sum(1)
+            inv_conjunction = inv_used_row_sums.eq(inv_masked_input_row_sums)
+
+            # The final output of each clause is the conjunction of:
+            #   (1) conjunction of used, non-inverting inputs
+            #   (2) conjunction of used, inverted inputs
+            clause_result = conjunction & inv_conjunction
+            assert isinstance(clause_result, ByteTensor), str(type(clause_result))
+        return clause_result.view(*self.clause_shape)
+
+'''
+
 kernels = '''
 extern "C"
 __global__ void learn(char *increment, char *decrement, char *inv_increment,

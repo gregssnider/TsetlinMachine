@@ -41,7 +41,7 @@ if __name__ == '__main__':
     number_of_classes = 10
 
     # Training configuration
-    epochs = 20
+    epochs = 10
 
     # Clip training to 10000 examples
     X_training, y_training = mnist_dataset(training=True, use_cuda=use_cuda)
