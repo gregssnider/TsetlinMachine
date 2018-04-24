@@ -1,8 +1,6 @@
 import numpy as np
-from collections import namedtuple
 import time
 import torch
-import cupy
 use_cuda = torch.cuda.is_available()
 if use_cuda:
     print('using GPU (CUDA)')
@@ -178,30 +176,6 @@ class TsetlinMachine2:
         accuracy = (examples - errors) / examples
         return accuracy
 
-    def _low_probability(self) -> ByteTensor:
-        """Compute an array of low probabilities.
-
-        Each element in the array is 1 with probability (1 / s).
-
-        Returns:
-            boolean array of shape [rows][columns]
-            shape: action.shape
-        """
-        action_shape = self.action.shape
-        return FloatTensor(*action_shape).uniform_() <= 1.0 / self.s
-
-    def _high_probability(self) -> ByteTensor:
-        """Compute an array of high probabilities.
-
-        Each element in the array is 1 with probability (s-1 / s).
-
-        Returns:
-            boolean array of shape [rows][columns]
-            shape: action_shape
-        """
-        action_shape = self.action.shape
-        return FloatTensor(*action_shape).uniform_() <= (self.s - 1.0) / self.s
-
     def train(self, input: ByteTensor, target_class: int):
         """Train the machine with a single example.
 
@@ -217,11 +191,11 @@ class TsetlinMachine2:
         assert target_class >= 0 and target_class < self.class_count
 
         # Randomly pick one of the other classes for pairwise learning.
-        anti_target_class = target_class
-        while anti_target_class == target_class:
-            anti_target_class = np.random.randint(0, self.class_count)
+        #anti_target_class = target_class
+        #while anti_target_class == target_class:
+        #    anti_target_class = np.random.randint(0, self.class_count)
 
-        assert anti_target_class < self.class_count
+        #assert anti_target_class < self.class_count
 
         ###############################
         ### Calculate Clause Output ###
@@ -260,20 +234,6 @@ class TsetlinMachine2:
         neg_feedback[0] = feedback_threshold[0]
         pos_feedback[1] = feedback_threshold[1]
 
-        '''
-        for anti_target_class in range(self.class_count):
-            if anti_target_class == target_class:
-                continue
-            feedback_rand = FloatTensor(2, self.clauses_per_class // 2, 1).uniform_()
-            feedback_threshold = feedback_rand <= (
-                    1.0 / (self.threshold * 2)) * \
-                                 (self.threshold + class_sum[
-                                     anti_target_class].float())
-
-            neg_feedback[0, anti_target_class] = feedback_threshold[0]
-            pos_feedback[1, anti_target_class] = feedback_threshold[1]
-        '''
-
 
         # Process target
         feedback_rand = FloatTensor(2, self.clauses_per_class // 2, 1).uniform_()
@@ -290,26 +250,14 @@ class TsetlinMachine2:
         ### Train Individual Automata ###
         #################################
 
-        low_prob = self._low_probability()
-        high_prob = self._high_probability()
+        low_prob = FloatTensor(*self.action.shape).uniform_() <= 1 / self.s
+        high_prob = FloatTensor(*self.action.shape).uniform_() <= (self.s - 1) / self.s
 
         pos_feedback = pos_feedback.expand_as(low_prob)
         neg_feedback = neg_feedback.expand_as(low_prob)
-
-        #low_prob = low_prob & pos_feedback
-        #high_prob = high_prob & pos_feedback
-
-        # PyTorch does not (yet) properly implement NumPy style
-        # broadcasting, so we fake it using the 'expand_as' method, which
-        # essentially is broadcasting done by hand.
         clauses = clause_outputs.expand_as(low_prob)
         not_clauses = clauses ^ 1
-
-        # Need to sort out the tables here...
         X = input.expand_as(low_prob)
-
-        #not_action = neg_feedback & (self.action ^ 1)
-        #not_inv_action = neg_feedback & (self.inv_action ^ 1)
 
         #---------------------- Start CUDA
         if use_cuda:
@@ -418,47 +366,6 @@ class TsetlinMachine2:
 
 # Cupy kernels
 from .cuda_kernels import Stream, load_kernel, CUDA_NUM_THREADS, GET_BLOCKS
-
-'''
-        if False:
-            clause_result = evaluate(input, self.action, self.inv_action)
-
-        else:
-            # First we process the non-inverting automata.
-            # We collect the 'used_bits' matrix, those bits that are used by each
-            # clause in computing the conjunction of the non-inverted input.s
-            # Each row of 'used_bits' are the non-inverted used bits for one clause.
-            used_bits = self.action.view(-1, self.feature_count)
-
-            input = input.expand_as(used_bits)
-            # For each clause, we mask out input bits which are not used. If the
-            # number of remaining bits equals the number of bits in used_bits for
-            # that clause, then the conjunction of the non-inverting bits is True.
-            masked_input = used_bits & input.expand_as(used_bits)
-
-            used_row_sums = used_bits.int().sum(1)
-            masked_input_row_sums = masked_input.int().sum(1)
-
-            conjunction = used_row_sums.eq(masked_input_row_sums)
-            #assert type(conjunction) == ByteTensor, str(type(conjunction))
-
-            # Repeat the above computations for the inverting automata.
-            inv_input = ~input
-            inv_used_bits = self.inv_action.view(-1, self.feature_count)
-            inv_masked_input = inv_used_bits & inv_input.expand_as(inv_used_bits)
-
-            inv_used_row_sums = inv_used_bits.int().sum(1)
-            inv_masked_input_row_sums = inv_masked_input.int().sum(1)
-            inv_conjunction = inv_used_row_sums.eq(inv_masked_input_row_sums)
-
-            # The final output of each clause is the conjunction of:
-            #   (1) conjunction of used, non-inverting inputs
-            #   (2) conjunction of used, inverted inputs
-            clause_result = conjunction & inv_conjunction
-            assert isinstance(clause_result, ByteTensor), str(type(clause_result))
-        return clause_result.view(*self.clause_shape)
-
-'''
 
 kernels = '''
 extern "C"
