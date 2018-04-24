@@ -250,17 +250,29 @@ class TsetlinMachine2:
         neg_feedback = ByteTensor(*self.clause_shape).zero_()
 
         # Process negative targets
+        threshold = (1.0 / (self.threshold * 2)) * \
+                    (self.threshold + class_sum.float())
+        threshold = threshold.view(1, self.class_count, 1, 1)
+        threshold = threshold.expand(*self.clause_shape)
+        feedback_rand =  FloatTensor(2, self.class_count,
+                                     self.clauses_per_class // 2, 1).uniform_()
+        feedback_threshold = feedback_rand <= threshold
+        neg_feedback[0] = feedback_threshold[0]
+        pos_feedback[1] = feedback_threshold[1]
+
+        '''
         for anti_target_class in range(self.class_count):
             if anti_target_class == target_class:
                 continue
             feedback_rand = FloatTensor(2, self.clauses_per_class // 2, 1).uniform_()
             feedback_threshold = feedback_rand <= (
-                        1.0 / (self.threshold * 2)) * \
+                    1.0 / (self.threshold * 2)) * \
                                  (self.threshold + class_sum[
                                      anti_target_class].float())
 
             neg_feedback[0, anti_target_class] = feedback_threshold[0]
             pos_feedback[1, anti_target_class] = feedback_threshold[1]
+        '''
 
 
         # Process target
@@ -270,7 +282,8 @@ class TsetlinMachine2:
 
         pos_feedback[0, target_class] = feedback_threshold[0]
         neg_feedback[1, target_class] = feedback_threshold[1]
-
+        neg_feedback[0, target_class] = 0
+        pos_feedback[1, target_class] = 0
 
 
         #################################
