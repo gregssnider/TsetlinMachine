@@ -13,11 +13,80 @@ else:
 class TsetlinMachine2:
     """The Tsetlin Machine as a classifier.
 
-    This is documented in the paper
+    This is documented in the paper by Granmo:
+       https://arxiv.org/pdf/1804.01508.pdf
 
-    :ivar class_count: Number of classification classes.
-    :ivar clause_count: Number of clauses
+    The learned state variables in this model are Tsetlin automata. An automata
+    consists of an integer counter, a boolean 'action' (which tells if the
+    counter is in the upper half of its counting range), and increment /
+    decrement operations. The counting range is clamped to the range
+    [1, 2 * states], where 'states' is a hyperparameter.
 
+    The number of automata depends on:
+        (1) The number of boolean input features, and
+        (2) The number of clauses in the machine.
+
+    Each clause requires 2 arrays of automata, each array having length equal to
+    the number of inputs. One array manages the conjunction of non-inverting
+    inputs, the other manages the conjunction of inverting inputs. The total
+    number of automata in the machine is:
+
+        2 * #clauses * #inputs
+
+    Clauses are divided into two "polarities," positive clauses and negative
+    clauses. The first half of an array of clauses are "positive", the second
+    half "negative". Those subarrays are further subdivided into clauses for
+    each of the classes:
+
+        clauses:
+            +-------------------------------------------+
+            |  pos polarity       class 0               |
+            |..                                       ..|
+            |                     class 1               |
+            |..                                       ..|
+            |                     class 2               |
+            |..                                       ..|
+            |                     class 3               |
+            +-------------------------------------------+
+            |  neg polarity       class 0               |
+            |..                                       ..|
+            |                     class 1               |
+            |..                                       ..|
+            |                     class 2               |
+            |..                                       ..|
+            |                     class 3               |
+            +-------------------------------------------+
+
+    A boolean clause tensor has the following shape:
+
+        (polarities, class_count, clauses_per_class // polarities, 1)
+
+    where:
+        polarities = 2
+        class_count = number of boolean outputs of classifier
+        clauses_per_class = number of machine clauses allocated to a class.
+
+
+    The integer automata tensor has the same structure as a clause tensor for
+    the first three dimensions, but the last dimension is equal in size to the
+    number of features (number of input bits). It thus has the shape:
+
+        (polarities, class_count, clauses_per_class//polarities, feature_count)
+
+    The inv_automata has the same structure as the automata tensor.
+
+    :ivar class_count: Number of boolean outputs of classifier (classes).
+    :ivar clause_count: Total number of clauses in the machine.
+    :ivar clause_count: Total number of clauses in the machine.
+    :ivar clauses_per_class: Number of clauses for each class, a mult. of 2.
+    :ivar feature_count: Number of boolean inputs.
+    :ivar state_count: Number of states in each Tsetlin automata.
+    :ivar s: system parameter (?)
+    :ivar threshold: system parameter (?)
+    :ivar automata: 4D tensor of Tsetlin automata controlling clauses.
+    :ivar inv_automata: 4D tensor of Tsetlin automata controlling clauses.
+    :ivar action: 4D action tensor derived automata.
+    :ivar inv_action: 4D inverting action tensor derived inv_automata.
     """
     def __init__(self, class_count: int, clause_count: int, feature_count: int,
                  states: int, s, threshold):
@@ -330,95 +399,3 @@ def learn(clauses: ByteTensor, X: ByteTensor, low_prob: ByteTensor,
              grid=(GET_BLOCKS(elements), 1, 1),
              stream=Stream(ptr=torch.cuda.current_stream().cuda_stream))
         return incr, decr, inv_incr, inv_decr
-
-
-'''
-
-    The learned state variables in this model are Tsetlin automata. An automata
-    consists of an integer counter, a boolean 'action' (which tells if the
-    counter is in the upper half of its counting range), and increment /
-    decrement operations. The counting range is clamped to the range
-    [0, 2 * states), where 'states' is a hyperparameter.
-
-    The number of automata depends on:
-        (1) The number of boolean input features, and
-        (2) The number of clauses in the machine.
-
-    Each clause requires 2 arrays of automata, each array having length equal to
-    the number of inputs. One array manages the conjunction of non-inverting
-    inputs, the other manages the conjunction of inverting inputs. So the total
-    number of automata in the machine is:
-
-        2 * #clauses * #inputs
-
-    and is represented by an 'automata' matrix, a 2D tensor of type int,
-    indexed by [clause, input].
-
-    Clauses are divided into two "polarities," positive clauses and negative
-    clauses. The first half of an array of clauses are "positive", the second
-    half "negative". Those subarrays are further subdivided into clauses for
-    each of the classes:
-
-        clauses:
-            +-------------------------------------------+
-            |  pos polarity       class 0               |
-            |..                                       ..|
-            |                     class 1               |
-            |..                                       ..|
-            |                     class 2               |
-            |..                                       ..|
-            |                     class 3               |
-            +-------------------------------------------+
-            |  neg polarity       class 0               |
-            |..                                       ..|
-            |                     class 1               |
-            |..                                       ..|
-            |                     class 2               |
-            |..                                       ..|
-            |                     class 3               |
-            +-------------------------------------------+
-
-    The automata matrix has the same structure as an array of clauses, with
-    the first half representing positive polarity, the second half representing
-    negative polarity. These are subdivided into clauses per class as above.
-    The number of columns is equal to the number of input features, so the
-    total number of automata is number_of_clauses * number_of_features
-
-        automata:
-            +----------------------------------------------+
-            |  pos polarity clauses, non-inverting inputs  |
-            |                                              |
-            |                                              |
-            +----------------------------------------------+
-            |  neg polarity clauses, non-inverting inputs  |
-            |                                              |
-            |                                              |
-            +----------------------------------------------+
-
-
-    The inverting automata matrix has the same structure:
-
-        inverting_automata:
-            +----------------------------------------------+
-            |  pos polarity clauses, non-inverting inputs  |
-            |                                              |
-            |                                              |
-            +----------------------------------------------+
-            |  neg polarity clauses, non-inverting inputs  |
-            |                                              |
-            |                                              |
-            +----------------------------------------------+
-
-
-    Attributes:
-        class_count: Number of boolean outputs (classes).
-        clause_count: Total number of clauses in the machine.
-        clauses_per_class: Number of clauses for each class, must be mult. of 2.
-        feature_count: Number of boolean inputs.
-        state_count: Number of states in each Tsetlin automata.
-        s: system parameter (?)
-        threshold: system parameter (?)
-        automata: 2D tensor of Tsetlin automata controlling clauses.
-        inverting_automata: 2D tensor of Tsetlin automata controlling clauses.
-
-'''
