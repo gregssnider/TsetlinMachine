@@ -66,7 +66,6 @@ class TsetlinMachine2:
         class_count = number of boolean outputs of classifier
         clauses_per_class = number of machine clauses allocated to a class.
 
-
     The integer automata tensor has the same structure as a clause tensor for
     the first three dimensions, but the last dimension is equal in size to the
     number of features (number of input bits). It thus has the shape:
@@ -75,12 +74,19 @@ class TsetlinMachine2:
 
     The inv_automata has the same structure as the automata tensor.
 
+    TO DO: XXX
+
+    1. Add support for mini-batches.
+    2. Consider creating a BitTensor to reduce bandwidth and compute overhead.
+    3. Currently no way to anneal learning rate. Perhaps changing automata from
+       int to float could solve this, so that it could be updated with
+       fractional values instead of just 1 or -1.
+
     :ivar class_count: Number of boolean outputs of classifier (classes).
-    :ivar clause_count: Total number of clauses in the machine.
     :ivar clause_count: Total number of clauses in the machine.
     :ivar clauses_per_class: Number of clauses for each class, a mult. of 2.
     :ivar feature_count: Number of boolean inputs.
-    :ivar state_count: Number of states in each Tsetlin automata.
+    :ivar states: Number of states in each Tsetlin automata.
     :ivar s: system parameter (?)
     :ivar threshold: system parameter (?)
     :ivar automata: 4D tensor of Tsetlin automata controlling clauses.
@@ -140,18 +146,18 @@ class TsetlinMachine2:
         self.action = self.automata > self.states
         self.inv_action = self.inv_automata > self.states
 
-    def evaluate_clauses(self, input: ByteTensor) -> ByteTensor:
+    def evaluate_clauses(self, input_: ByteTensor) -> ByteTensor:
         """Evaluate all clauses in the array.
 
         :param input: Input vector. Shape (feature_count, )
         :return: Array of outputs for each clause. Shape: self.clause_shape
         """
         # Check that all set action bits are also set in the input.
-        input = input.expand_as(self.action)
-        matches, _ = torch.min((self.action & input).eq(self.action), 3)
+        input_ = input_.expand_as(self.action)
+        matches, _ = torch.min((self.action & input_).eq(self.action), 3)
 
         # Same check for inv_action and inv_input.
-        inv_input = (~input).expand_as(self.action)
+        inv_input = (~input_).expand_as(self.action)
         inv_matches, _ = torch.min((self.inv_action & inv_input).
                                        eq(self.inv_action), 3)
 
